@@ -1,20 +1,25 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-</head>
-<body style="margin: 0; overflow: hidden;">
-  <a-scene embedded arjs>
-    <a-assets>
-      <img id="korea-spot" src="korea_airport_360.jpg">
-    </a-assets>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>韓国AR旅行</title>
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+  </head>
+  <body style="margin: 0; overflow: hidden;">
+    <a-scene embedded arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;">
+      
+      <a-assets>
+        <img id="korea-360" src="assets/korea_spot.jpg">
+      </a-assets>
 
-    <a-marker preset="hiro">
-      <a-entity portal="destination: #korea-spot"></a-entity>
-    </a-marker>
+      <a-marker preset="hiro">
+        <a-sphere src="#korea-360" radius="1" position="0 1 0" rotation="0 -90 0"></a-sphere>
+        <a-text value="Step into Korea!" position="0 2.5 0" align="center" color="#FFF"></a-text>
+      </a-marker>
 
-    <a-entity camera></a-entity>
-  </scene>
-</body>
+      <a-entity camera></a-entity>
+    </a-scene>
+  </body>
 </html>
