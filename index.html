@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>AR Test Minimal</title>
+<title>AR 3ポータルテスト</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
-body { margin:0; overflow:hidden; background:#000; }
+body { margin:0; overflow:hidden; background:#000; font-family:sans-serif; }
 #tap-overlay {
     position:absolute; top:0; left:0; width:100%; height:100%;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -18,14 +18,14 @@ body { margin:0; overflow:hidden; background:#000; }
 <body>
 
 <div id="tap-overlay">
-    <h2>AR Test</h2>
+    <h2>AR 3ポータルテスト</h2>
     <button id="btn-start">開始</button>
 </div>
 
 <script>
-let scene, camera, renderer, portal;
+let scene, camera, renderer, portals=[], moveZ=0, targetZ=0, isTouch=false;
 
-async function init() {
+function init() {
 
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
@@ -36,33 +36,91 @@ async function init() {
     document.body.appendChild(renderer.domElement);
 
     // カメラ映像
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
-        const video = document.createElement('video');
-        video.srcObject = stream;
+    navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}})
+    .then(stream=>{
+        const video=document.createElement('video');
+        video.srcObject=stream;
         video.setAttribute('playsinline','');
-        await video.play();
+        video.play();
         scene.background = new THREE.VideoTexture(video);
-    } catch(e) {
-        alert("カメラが取得できません: "+e);
-    }
+    }).catch(e=>alert("カメラ取得失敗: "+e));
 
-    // 最初のポータルだけ
     const loader = new THREE.TextureLoader();
-    const tex = loader.load('./day_1.jpg', ()=>{
-        renderer.render(scene,camera); // テクスチャ読み込み後描画
+    const confs = [
+        {x:-3, z:-5, img:'./day_1.jpg', col:0x87CEEB},
+        {x:0,  z:-10, img:'./day_2.jpg', col:0x8B4513},
+        {x:3,  z:-15, img:'./night_1.jpg', col:0xbf55ec}
+    ];
+
+    confs.forEach(c=>{
+        const group = new THREE.Group();
+        group.position.set(c.x,1.5,c.z);
+
+        // ドア左右
+        const dGeo = new THREE.PlaneGeometry(1.2,3.5);
+        const L = new THREE.Mesh(dGeo,new THREE.MeshBasicMaterial({color:c.col, transparent:true}));
+        const R = new THREE.Mesh(dGeo,new THREE.MeshBasicMaterial({color:c.col, transparent:true}));
+        L.position.set(-0.6,0,0.1);
+        R.position.set(0.6,0,0.1);
+
+        // パネル
+        const tex = loader.load(c.img);
+        tex.repeat.set(1,-1); 
+        tex.offset.set(0,1);
+        const pGeo = new THREE.CylinderGeometry(5,5,8,32,1,true,Math.PI*0.65,Math.PI*0.7);
+        const pMat = new THREE.MeshBasicMaterial({map:tex, side:THREE.BackSide, transparent:true, opacity:0});
+        const panel = new THREE.Mesh(pGeo,pMat);
+        panel.position.set(0,0,-4.5);
+
+        group.add(L,R,panel);
+        scene.add(group);
+
+        portals.push({group,L,R,panel,x:c.x,z:c.z});
     });
-    const pGeo = new THREE.CylinderGeometry(5,5,8,32,1,true,Math.PI*0.65,Math.PI*0.7);
-    const pMat = new THREE.MeshBasicMaterial({map:tex, side:THREE.BackSide, transparent:true, opacity:1});
-    portal = new THREE.Mesh(pGeo,pMat);
-    portal.position.set(0,0,-4.5);
-    scene.add(portal);
+
+    // タッチ操作で前進
+    document.addEventListener('touchstart', e=>{ if(e.target.id!=='btn-start') isTouch=true; });
+    document.addEventListener('touchend', ()=>isTouch=false);
+
+    // 端末傾きでカメラ回転
+    window.addEventListener('deviceorientation', e=>{
+        camera.rotation.set((e.beta-90)*Math.PI/180, 0, e.alpha*Math.PI/180,'YXZ');
+    });
 
     animate();
 }
 
 function animate() {
     requestAnimationFrame(animate);
+
+    // 前進
+    if(isTouch) targetZ+=0.02;
+    moveZ += (targetZ-moveZ)*0.1;
+    camera.position.z = -moveZ;
+
+    // ポータル処理
+    portals.forEach(p=>{
+        const d = Math.abs(camera.position.z - p.z);
+
+        if(d<8){
+            p.group.visible = true;
+            p.panel.material.opacity = 1;
+
+            if(d<2.5){ // ドア開く
+                p.L.position.x = THREE.MathUtils.lerp(p.L.position.x,-2.5,0.05);
+                p.R.position.x = THREE.MathUtils.lerp(p.R.position.x, 2.5,0.05);
+                if(d<0.8) p.L.material.opacity=p.R.material.opacity=0;
+            } else { // ドア閉じる
+                p.L.position.x = THREE.MathUtils.lerp(p.L.position.x,-0.6,0.05);
+                p.R.position.x = THREE.MathUtils.lerp(p.R.position.x,0.6,0.05);
+                p.L.material.opacity=p.R.material.opacity=1;
+            }
+        } else {
+            p.group.visible=false;
+            if(camera.position.z<p.z) p.panel.material.opacity=0;
+        }
+    });
+
     renderer.render(scene,camera);
 }
 
