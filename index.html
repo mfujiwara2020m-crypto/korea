@@ -2,141 +2,118 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Busan 3D Portal - High Response</title>
+    <title>Busan Sky Capsule AR</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum:wght@400;800&display=swap" rel="stylesheet">
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Gowun Dodum', sans-serif; background: #000; touch-action: none; }
-        
-        /* 画面全体をタップ可能にする透明な層 */
-        #tap-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 500; display: flex; align-items: center; justify-content: center;
-        }
-
-        #instructions {
-            color: white; font-size: 20px; font-weight: bold; text-align: center;
-            text-shadow: 2px 2px 10px #000; pointer-events: none;
-        }
-
-        #welcome-overlay {
-            position: absolute; top: 15%; width: 100%; text-align: center;
-            z-index: 20; pointer-events: none; display: none;
-        }
+        #tap-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 500; display: flex; align-items: center; justify-content: center; }
+        #instructions { color: white; font-size: 20px; font-weight: bold; text-align: center; text-shadow: 2px 2px 10px #000; pointer-events: none; }
+        #welcome-overlay { position: absolute; top: 15%; width: 100%; text-align: center; z-index: 20; pointer-events: none; display: none; }
         .msg-ko { color: #bf55ec; font-size: 34px; font-weight: 800; text-shadow: 0 0 10px #fff; }
-
-        #ui-container {
-            position: absolute; bottom: 40px; width: 100%; text-align: center;
-            z-index: 600; display: none;
-        }
-        #train-btn {
-            padding: 15px 40px; border-radius: 50px; border: none;
-            background: #ffeb3b; font-weight: bold; font-size: 16px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        }
+        #ui-container { position: absolute; bottom: 40px; width: 100%; text-align: center; z-index: 600; display: none; }
+        #train-btn { padding: 15px 40px; border-radius: 50px; border: none; background: #ffffff; font-weight: bold; font-size: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
-    <div id="tap-overlay">
-        <div id="instructions">画面をどこでも<br>タップしてください</div>
-    </div>
-
-    <div id="welcome-overlay">
-        <div class="msg-ko">BUSAN PORTAL</div>
-    </div>
-
-    <div id="ui-container">
-        <button id="train-btn">電車を走らせる 🚃</button>
-    </div>
+    <div id="tap-overlay"><div id="instructions">画面をタップして<br>釜山の空へ繋げる</div></div>
+    <div id="welcome-overlay"><div class="msg-ko">BUSAN PORTAL</div></div>
+    <div id="ui-container"><button id="train-btn">電車を走らせる 🚃</button></div>
 
     <script type="module">
         let scene, camera, renderer, portalRoom, leftDoor, rightDoor, train;
         let doorOpened = false, isPlaced = false, isTrainRunning = false;
+        let trainColorIdx = 0;
+        const trainColors = [0xffeb3b, 0xff5252, 0x4caf50]; // 黄, 赤, 緑
+        const tourImages = ['./day_1.jpg', './day_2.jpg', './night_1.jpg'];
         const loader = new THREE.TextureLoader();
 
         async function init() {
             scene = new THREE.Scene();
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
 
-            // カメラ起動を待機
+            // カメラ背景
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                 const video = document.createElement('video');
-                video.srcObject = stream;
-                video.setAttribute('playsinline', '');
-                video.play();
+                video.srcObject = stream; video.setAttribute('playsinline', ''); video.play();
                 scene.background = new THREE.VideoTexture(video);
-            } catch (err) {
-                document.getElementById('instructions').innerText = "カメラを許可してください";
-            }
+            } catch (err) { alert("カメラが必要です"); }
 
-            // 3D空間（ポータル）の作成
-            const roomGeo = new THREE.BoxGeometry(2, 2, 2);
+            // 奥行き 4m のポータル
+            const roomGeo = new THREE.BoxGeometry(2, 2, 4);
             const roomMats = [
-                new THREE.MeshBasicMaterial({ color: 0x444444, side: THREE.BackSide }),
-                new THREE.MeshBasicMaterial({ color: 0x444444, side: THREE.BackSide }),
-                new THREE.MeshBasicMaterial({ color: 0x333333, side: THREE.BackSide }),
-                new THREE.MeshBasicMaterial({ color: 0x222222, side: THREE.BackSide }),
-                new THREE.MeshBasicMaterial({ map: loader.load('./day_1.jpg'), side: THREE.BackSide }),
-                new THREE.MeshBasicMaterial({ visible: false })
+                new THREE.MeshBasicMaterial({ color: 0x222222, side: THREE.BackSide }), // 右
+                new THREE.MeshBasicMaterial({ color: 0x222222, side: THREE.BackSide }), // 左
+                new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.BackSide }), // 上
+                new THREE.MeshBasicMaterial({ color: 0x050505, side: THREE.BackSide }), // 下
+                new THREE.MeshBasicMaterial({ map: loader.load(tourImages[0]), side: THREE.BackSide }), // 奥の景色
+                new THREE.MeshBasicMaterial({ visible: false }) // 手前
             ];
             portalRoom = new THREE.Mesh(roomGeo, roomMats);
-            portalRoom.position.z = -3;
+            portalRoom.position.z = -4;
             portalRoom.visible = false;
             scene.add(portalRoom);
 
-            // 3D電車
+            // 空飛ぶ電車（目線の高さ y=0.4 付近）
             train = new THREE.Mesh(
-                new THREE.BoxGeometry(0.5, 0.3, 0.3),
-                new THREE.MeshBasicMaterial({ color: 0xffeb3b })
+                new THREE.BoxGeometry(0.4, 0.3, 0.3),
+                new THREE.MeshBasicMaterial({ color: trainColors[0] })
             );
-            train.position.set(2, -0.4, -2.2);
+            train.position.set(2, 0.4, -2.5); // 画面上部を走る
             train.visible = false;
             scene.add(train);
 
             // 扉
             const doorMat = new THREE.MeshBasicMaterial({ color: 0x0078ff, transparent: true });
-            leftDoor = new THREE.Mesh(new THREE.PlaneGeometry(1, 2), doorMat);
-            rightDoor = new THREE.Mesh(new THREE.PlaneGeometry(1, 2), doorMat);
+            leftDoor = new THREE.Mesh(new THREE.PlaneGeometry(1, 2.5), doorMat);
+            rightDoor = new THREE.Mesh(new THREE.PlaneGeometry(1, 2.5), doorMat);
             leftDoor.position.set(-0.5, 0, -2.01);
             rightDoor.position.set(0.5, 0, -2.01);
             leftDoor.visible = false; rightDoor.visible = false;
             scene.add(leftDoor, rightDoor);
 
-            // --- 決定的なクリックイベントの修正 ---
-            const overlay = document.getElementById('tap-overlay');
             const handleAction = () => {
                 if (!isPlaced) {
                     isPlaced = true;
-                    overlay.style.display = 'none'; // ガイドを消す
-                    portalRoom.visible = true;
-                    leftDoor.visible = true;
-                    rightDoor.visible = true;
-                    setTimeout(() => { 
-                        doorOpened = true; 
+                    document.getElementById('tap-overlay').style.display = 'none';
+                    portalRoom.visible = true; leftDoor.visible = true; rightDoor.visible = true;
+                    setTimeout(() => { doorOpened = true; 
                         document.getElementById('welcome-overlay').style.display = "block";
                         document.getElementById('ui-container').style.display = "block";
                     }, 500);
                 }
             };
+            document.getElementById('tap-overlay').addEventListener('click', handleAction);
+            document.getElementById('tap-overlay').addEventListener('touchstart', handleAction);
 
-            overlay.addEventListener('touchstart', (e) => { e.preventDefault(); handleAction(); }, {passive: false});
-            overlay.addEventListener('click', handleAction);
-
-            // 電車ボタン
+            // 電車ボタン（色と景色の切り替え）
             document.getElementById('train-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (isTrainRunning) return;
-                isTrainRunning = true; train.visible = true; train.position.x = 2;
+                
+                isTrainRunning = true;
+                train.visible = true;
+                train.position.x = 2;
+                // 現在の色を設定
+                train.material.color.setHex(trainColors[trainColorIdx]);
+
+                // 通過中に景色を切り替え
                 setTimeout(() => {
-                    portalRoom.material[4].map = loader.load('./night_1.jpg');
-                }, 1000);
-                setTimeout(() => { isTrainRunning = false; train.visible = false; }, 2000);
+                    const nextImgIdx = (trainColorIdx + 1) % tourImages.length;
+                    portalRoom.material[4].map = loader.load(tourImages[nextImgIdx]);
+                }, 1200);
+
+                // 通過後のリセットと色インデックス更新
+                setTimeout(() => {
+                    isTrainRunning = false;
+                    train.visible = false;
+                    trainColorIdx = (trainColorIdx + 1) % trainColors.length;
+                }, 3000);
             });
 
             animate();
@@ -144,19 +121,21 @@
 
         function animate() {
             requestAnimationFrame(animate);
+            // 扉：超スロー
             if (doorOpened && leftDoor.position.x > -1.5) {
-                leftDoor.position.x -= 0.005; rightDoor.position.x += 0.005;
-                leftDoor.material.opacity -= 0.008; rightDoor.material.opacity -= 0.008;
+                leftDoor.position.x -= 0.0015;
+                rightDoor.position.x += 0.0015;
+                leftDoor.material.opacity -= 0.003;
+                rightDoor.material.opacity -= 0.003;
             }
-            if (isTrainRunning) { 
-                train.position.x -= 0.04; 
-                train.rotation.y += 0.02; 
+            // 電車：ゆったり徐行
+            if (isTrainRunning) {
+                train.position.x -= 0.012;
+                train.rotation.y += 0.01;
             }
             renderer.render(scene, camera);
         }
-
-        // ページ読み込み完了後に起動
-        window.addEventListener('load', init);
+        window.onload = init;
     </script>
 </body>
 </html>
