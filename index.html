@@ -3,22 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Busan AR Portal - Realistic Door</title>
+<title>Busan AR Portal - Discovery</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
 body { margin:0; overflow:hidden; background:#000; font-family:sans-serif; }
-#tap-overlay {position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);color:white;z-index:10;}
-#btn-start {padding:15px 40px;font-size:20px;background:#bf55ec;border:none;border-radius:50px;color:white;cursor:pointer;}
+#tap-overlay {position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);color:white;z-index:10;text-align:center;}
+#btn-start {padding:15px 40px;font-size:20px;background:#bf55ec;border:none;border-radius:50px;color:white;cursor:pointer;margin-top:20px;}
 #dist-ui {position:absolute;bottom:30px;width:100%;text-align:center;color:white;font-weight:bold;z-index:5;pointer-events:none;}
+/* 戻るボタン */
 #btn-reset {position:absolute;top:20px;right:20px;padding:10px 20px;background:rgba(255,255,255,0.2);border:1px solid white;color:white;border-radius:5px;z-index:15;display:none;cursor:pointer;}
+/* タイトルネオン演出 */
+#title-neon {
+    position:absolute;top:20%;width:100%;text-align:center;
+    font-size:2.5rem;color:#bf55ec;text-shadow: 0 0 10px #bf55ec, 0 0 20px #bf55ec;
+    z-index:8;display:none;font-weight:bold;
+}
 </style>
 </head>
 <body>
 <div id="tap-overlay">
-    <h2>釜山 没入体験</h2>
-    <p>長押しで前進 / 左右に傾けて移動</p>
+    <h2>プサン 没入体験</h2>
+    <p>長押しで前進 / スマホを左右に振ってドアを探してください</p>
     <button id="btn-start">開始</button>
 </div>
+<div id="title-neon">부산에 오신 것을 환영합니다</div>
 <button id="btn-reset">最初に戻る</button>
 <div id="dist-ui">位置: 0.0m</div>
 
@@ -34,6 +42,7 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
+    // カメラ背景
     navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}})
     .then(stream=>{
         const video=document.createElement('video');
@@ -44,53 +53,67 @@ function init() {
     });
 
     const loader = new THREE.TextureLoader();
+    // ドアを三角形に遠く配置（干渉防止）
     const confs = [
-        {x:-3, z:-6, img:'./day_1.jpg', color:0x87CEEB},
-        {x:0,  z:-6, img:'./day_2.jpg', color:0x8B4513},
-        {x:3,  z:-6, img:'./night_1.jpg', color:0xbf55ec}
+        {x:-10, z:-15, img:'./day_1.jpg', color:0x87CEEB}, // 左前方
+        {x:10,  z:-15, img:'./day_2.jpg', color:0x8B4513}, // 右前方
+        {x:0,   z:-25, img:'./night_1.jpg', color:0xbf55ec} // 奥中央
     ];
 
     confs.forEach(c=>{
         const group = new THREE.Group();
         group.position.set(c.x, 1.5, c.z);
 
-        // 扉：不透明(opacity:1)にして「覗き見」感を出す
+        // 扉：完全に不透明にして隙間から覗く感を出す
         const dGeo = new THREE.PlaneGeometry(1.2, 3.5);
         const L = new THREE.Mesh(dGeo, new THREE.MeshBasicMaterial({color:c.color, transparent:false}));
         const R = new THREE.Mesh(dGeo, new THREE.MeshBasicMaterial({color:c.color, transparent:false}));
         L.position.set(-0.6, 0, 0.1);
         R.position.set(0.6, 0, 0.1);
 
-        // 背景画像：最初から不透明にするが、最初は非表示にしておく
+        // 写真パネル
         const tex = loader.load(c.img);
-        tex.repeat.set(1, -1); tex.offset.set(0, 1);
-        const panelGeo = new THREE.CylinderGeometry(5, 5, 8, 32, 1, true, Math.PI*0.65, Math.PI*0.7);
+        tex.repeat.set(1,-1); tex.offset.set(0,1);
+        const panelGeo = new THREE.CylinderGeometry(5,5,8,32,1,true,Math.PI*0.65,Math.PI*0.7);
         const panelMat = new THREE.MeshBasicMaterial({map:tex, side:THREE.BackSide, transparent:true, opacity:0});
-        const panel = new THREE.Mesh(panelGeo, panelMat);
-        panel.position.set(0, 0, -4.5);
+        const panel = new THREE.Mesh(panelGeo,panelMat);
+        panel.position.set(0,0,-4.5);
 
-        group.add(L, R, panel);
+        group.add(L,R,panel);
         scene.add(group);
-        portals.push({group, L, R, panel, x:c.x, z:c.z});
+        portals.push({group,L,R,panel,x:c.x,z:c.z});
     });
 
+    // 入力制御
     document.addEventListener('touchstart', e=>{ if(e.target.tagName !== 'BUTTON') isTouch=true; });
     document.addEventListener('touchend', ()=>isTouch=false);
 
     window.addEventListener('deviceorientation', e=>{
-        camera.rotation.set((e.beta-90)*Math.PI/180, 0, e.alpha*Math.PI/180, 'YXZ');
-        if(e.gamma) moveX = e.gamma * 0.08; 
+        camera.rotation.set((e.beta-90)*Math.PI/180,0,e.alpha*Math.PI/180,'YXZ');
+        // 横揺れ感（傾き）で少しだけ横にスライド
+        if(e.gamma) moveX = e.gamma * 0.15; 
     });
 
     animate();
+    showTitleSequence();
+}
+
+function showTitleSequence() {
+    const titleEl = document.getElementById('title-neon');
+    titleEl.style.display = 'block';
+    // 3秒後に日本語（プサン）に変更
+    setTimeout(() => {
+        titleEl.innerText = "プサンへようこそ";
+    }, 3000);
 }
 
 function animate() {
     requestAnimationFrame(animate);
 
-    if(isTouch) targetZ += 0.04;
+    if(isTouch) targetZ += 0.05;
     moveZ += (targetZ - moveZ) * 0.1;
     
+    // 左右移動と前後移動をカメラに反映
     camera.position.x += (moveX - camera.position.x) * 0.1;
     camera.position.z = -moveZ;
 
@@ -99,19 +122,18 @@ function animate() {
         const dx = camera.position.x - p.x;
         const dist = Math.sqrt(dx*dx + dz*dz);
 
-        if(dist < 8){
+        // ドア付近（10m以内）に来たら表示
+        if(dist < 10){
             p.group.visible = true;
-            
-            // 2.5m以内に入ったら扉を動かす
+            // 2.5mまで近づいたらドアが開き始める
             const openProgress = THREE.MathUtils.clamp((2.5-dist)/2.5, 0, 1);
 
-            // 扉をゆっくり左右にスライド
+            // ドアをゆっくりスライド
             p.L.position.x = THREE.MathUtils.lerp(p.L.position.x, openProgress > 0 ? -2.5 : -0.6, 0.02);
             p.R.position.x = THREE.MathUtils.lerp(p.R.position.x, openProgress > 0 ? 2.5 : 0.6, 0.02);
             
-            // 【重要】画像はフェードインさせず、扉が動いた瞬間には「既にそこにある」ように見せる
-            // ただし、完全に離れている時は描画負荷を下げるためopacity 0にする
-            if(dist < 5) {
+            // 隙間から見えるよう、画像は開き始めたらすぐ100%に
+            if(openProgress > 0.01) {
                 p.panel.material.opacity = 1;
             }
         } else {
@@ -121,9 +143,10 @@ function animate() {
     });
 
     document.getElementById('dist-ui').innerText = `位置: ${moveZ.toFixed(1)}m`;
-    renderer.render(scene, camera);
+    renderer.render(scene,camera);
 }
 
+// ボタンアクション
 document.getElementById('btn-start').onclick = ()=>{
     init();
     document.getElementById('tap-overlay').style.display='none';
