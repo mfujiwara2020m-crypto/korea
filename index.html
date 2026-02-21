@@ -3,39 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Busan Portal - Immersive Fixed</title>
+    <title>Busan Portal</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
-        /* 【修正】オーバーレイを最前面に */
-        #tap-overlay { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            z-index: 2000; /* 重なり順を一番上に */
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            background: rgba(0,0,0,0.8); color: white; text-align: center; 
-        }
-        #btn-start { 
-            padding: 15px 40px; font-size: 20px; background: #bf55ec; color: white; 
-            border: none; border-radius: 50px; cursor: pointer; pointer-events: auto;
-        }
-        #dist-ui { 
-            position: absolute; bottom: 30px; width: 100%; text-align: center; 
-            color: white; font-size: 16px; font-weight: bold; z-index: 500; 
-            text-shadow: 0 0 10px #000; pointer-events: none; 
-        }
+        #tap-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); color: white; }
+        #btn-start { padding: 15px 40px; font-size: 20px; background: #bf55ec; color: white; border: none; border-radius: 50px; }
+        #dist-ui { position: absolute; bottom: 30px; width: 100%; text-align: center; color: white; font-weight: bold; text-shadow: 0 0 5px #000; pointer-events: none; }
     </style>
 </head>
 <body>
     <div id="tap-overlay">
-        <h2>釜山着陸シークエンス</h2>
-        <p>画面を長押ししている間、ゆっくり前進します</p>
-        <button id="btn-start">体験開始</button>
+        <h2>釜山 没入体験</h2>
+        <p>画面を長押しで前進</p>
+        <button id="btn-start">開始</button>
     </div>
     <div id="dist-ui">位置: 0.0m</div>
 
     <script>
-        let scene, camera, renderer, portalGroups = [];
-        let moveForward = 0, targetZ = 0, isTouching = false;
+        let scene, camera, renderer, portals = [], moveZ = 0, targetZ = 0, isTouch = false;
         const loader = new THREE.TextureLoader();
 
         function init() {
@@ -46,69 +32,50 @@
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
-            // 【修正】3D画面自体がタッチイベントをブロックしないようにする
-            renderer.domElement.style.pointerEvents = "none"; 
             document.body.appendChild(renderer.domElement);
 
+            // カメラ背景
             navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-                .then(stream => {
-                    const video = document.createElement('video');
-                    video.srcObject = stream; video.setAttribute('playsinline', ''); video.play();
-                    scene.background = new THREE.VideoTexture(video);
-                });
+                .then(s => { const v = document.createElement('video'); v.srcObject = s; v.play(); scene.background = new THREE.VideoTexture(v); });
 
-            // 門の設定（ストーリー性を持たせた設定）
-            const configs = [
-                { z: -5,  color: 0x87CEEB, img: './day_1.jpg' }, // 飛行機
-                { z: -15, color: 0x8B4513, img: './day_2.jpg' }, // 昼の街
-                { z: -25, color: 0xbf55ec, img: './night_1.jpg' } // 夜景
+            // 門の設定（ここで3枚分を管理）
+            const confs = [
+                { z: -5,  img: './day_1.jpg', color: 0x87CEEB }, // 1. 飛行機
+                { z: -15, img: './day_2.jpg', color: 0x8B4513 }, // 2. 昼の街
+                { z: -25, img: './night_1.jpg', color: 0xbf55ec } // 3. 夜景
             ];
 
-            configs.forEach(conf => {
+            confs.forEach(c => {
                 const group = new THREE.Group();
-                group.position.set(0, 1.5, conf.z);
+                group.position.set(0, 1.5, c.z);
 
-                const doorGeo = new THREE.PlaneGeometry(1.2, 3.5);
-                const doorMat = (c) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0, side: THREE.DoubleSide });
-                const leftDoor = new THREE.Mesh(doorGeo, doorMat(conf.color));
-                leftDoor.position.set(-0.6, 0, 0.1);
-                const rightDoor = new THREE.Mesh(doorGeo, doorMat(conf.color));
-                rightDoor.position.set(0.6, 0, 0.1);
+                // ドア (共通)
+                const dGeo = new THREE.PlaneGeometry(1.2, 3.5);
+                const dMat = new THREE.MeshBasicMaterial({ color: c.color, transparent: true, opacity: 0 });
+                const L = new THREE.Mesh(dGeo, dMat); L.position.set(-0.6, 0, 0.1);
+                const R = new THREE.Mesh(dGeo, dMat.clone()); R.position.set(0.6, 0, 0.1);
 
-               // 1. 円柱の作成（開始角度を調整して、最初から正面にくるようにする）
-// 第6引数を Math.PI * 1.15 にすると、だいたい正面にきます
-const photoGeo = new THREE.CylinderGeometry(5, 5, 8, 32, 1, true, Math.PI * 1.3, Math.PI * 0.7);
-const photoMat = new THREE.MeshBasicMaterial({ 
-    map: loader.load(conf.img), 
-    side: THREE.BackSide, 
-    transparent: true, 
-    opacity: 0 
-});
-const photoCurve = new THREE.Mesh(photoGeo, photoMat);
+                // 【修正済】写真パネル（上下反転と位置ズレを解消）
+                const tex = loader.load(c.img);
+                tex.repeat.y = -1; tex.offset.y = 1; // 上下反転を直す
 
-// 2. 位置を固定（ここから動かさない！）
-photoCurve.position.set(0, 0, -4.5); 
+                // 第6引数 0.65 で正面、第7引数 0.7 で表示幅を調整
+                const pGeo = new THREE.CylinderGeometry(5, 5, 8, 32, 1, true, Math.PI * 0.65, Math.PI * 0.7);
+                const pMat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, transparent: true, opacity: 0 });
+                const panel = new THREE.Mesh(pGeo, pMat);
+                panel.position.set(0, 0, -4.5);
 
-// 3. 【重要】ここには rotation.y を書かない（または 0 にする）
-photoCurve.rotation.y = 0; 
-
-group.add(leftDoor, rightDoor, photoCurve);
-scene.add(group);
-                portalGroups.push({ group, leftDoor, rightDoor, photoCurve, targetZ: conf.z });
+                group.add(L, R, panel);
+                scene.add(group);
+                portals.push({ group, L, R, panel, z: c.z });
             });
 
-            // 【重要】タッチイベントを「document」全体で取る
-            document.addEventListener('touchstart', (e) => { 
-                if(e.target.id !== 'btn-start') { // ボタン以外の場所なら前進
-                    isTouching = true; 
-                }
-            }, {passive: false});
-            document.addEventListener('touchend', () => { isTouching = false; });
-
-            window.addEventListener('deviceorientation', (e) => {
-                const alpha = e.alpha ? THREE.MathUtils.degToRad(e.alpha) : 0;
-                const beta = e.beta ? THREE.MathUtils.degToRad(e.beta) : 0;
-                const euler = new THREE.Euler(beta - Math.PI/2, 0, alpha, 'YXZ');
+            // 操作
+            document.addEventListener('touchstart', e => { if(e.target.id !== 'btn-start') isTouch = true; });
+            document.addEventListener('touchend', () => isTouch = false);
+            window.addEventListener('deviceorientation', e => {
+                const q = new THREE.Quaternion();
+                const euler = new THREE.Euler((e.beta-90)*Math.PI/180, 0, e.alpha*Math.PI/180, 'YXZ');
                 camera.quaternion.setFromEuler(euler);
             });
 
@@ -117,42 +84,30 @@ scene.add(group);
 
         function animate() {
             requestAnimationFrame(animate);
-            if (isTouching) targetZ += 0.02;
-            moveForward += (targetZ - moveForward) * 0.1;
-            camera.position.z = -moveForward;
+            if (isTouch) targetZ += 0.02; // スピード調整
+            moveZ += (targetZ - moveZ) * 0.1; // ヌルヌル移動
+            camera.position.z = -moveZ;
 
-            portalGroups.forEach(p => {
-                const distance = Math.abs(camera.position.z - p.targetZ);
+            portals.forEach(p => {
+                const d = Math.abs(camera.position.z - p.z);
+                p.group.visible = d < 8;
                 
-                if (distance < 8.0) {
-                    p.group.visible = true;
-                    if (p.leftDoor.material.opacity < 1 && distance > 2.5) {
-                        p.leftDoor.material.opacity += 0.02;
-                        p.rightDoor.material.opacity += 0.02;
-                    }
-                }
-
-                if (distance < 2.5) {
-                    p.leftDoor.position.x = THREE.MathUtils.lerp(p.leftDoor.position.x, -2.5, 0.05);
-                    p.rightDoor.position.x = THREE.MathUtils.lerp(p.rightDoor.position.x, 2.5, 0.05);
-                    p.photoCurve.material.opacity = THREE.MathUtils.lerp(p.photoCurve.material.opacity, 1, 0.05);
-                } else {
-                    p.leftDoor.position.x = THREE.MathUtils.lerp(p.leftDoor.position.x, -0.6, 0.05);
-                    p.rightDoor.position.x = THREE.MathUtils.lerp(p.rightDoor.position.x, 0.6, 0.05);
-                    p.photoCurve.material.opacity = THREE.MathUtils.lerp(p.photoCurve.material.opacity, 0, 0.05);
+                if (d < 2.5) { // 門が開く
+                    p.L.position.x = THREE.MathUtils.lerp(p.L.position.x, -2.5, 0.05);
+                    p.R.position.x = THREE.MathUtils.lerp(p.R.position.x, 2.5, 0.05);
+                    p.panel.material.opacity = THREE.MathUtils.lerp(p.panel.material.opacity, 1, 0.05);
+                } else { // 門が閉じる
+                    p.L.position.x = THREE.MathUtils.lerp(p.L.position.x, -0.6, 0.05);
+                    p.R.position.x = THREE.MathUtils.lerp(p.R.position.x, 0.6, 0.05);
+                    p.panel.material.opacity = THREE.MathUtils.lerp(p.panel.material.opacity, 0, 0.05);
+                    if (d < 8) p.L.material.opacity = p.R.material.opacity = 1;
                 }
             });
-            document.getElementById('dist-ui').innerText = `位置: ${moveForward.toFixed(1)}m`;
+            document.getElementById('dist-ui').innerText = `位置: ${moveZ.toFixed(1)}m`;
             renderer.render(scene, camera);
         }
 
-        document.getElementById('btn-start').onclick = function(e) {
-            e.stopPropagation(); // イベントの伝播を止める
-            init();
-            document.getElementById('tap-overlay').style.display = 'none';
-        };
+        document.getElementById('btn-start').onclick = () => { init(); document.getElementById('tap-overlay').style.display='none'; };
     </script>
 </body>
 </html>
-
-
