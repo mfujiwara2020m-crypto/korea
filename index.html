@@ -1,47 +1,44 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Busan Tap AR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Busan Tap AR - Fixed</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap" rel="stylesheet">
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Gowun Dodum', sans-serif; background: #000; }
+        body { margin: 0; overflow: hidden; font-family: 'Gowun Dodum', sans-serif; background: #000; touch-action: none; }
+        #instructions {
+            position: absolute; top: 50%; width: 100%; text-align: center;
+            color: white; font-size: 20px; z-index: 100; font-weight: bold;
+            text-shadow: 2px 2px 5px rgba(0,0,0,0.8);
+        }
         #welcome-overlay {
             position: absolute; top: 15%; width: 100%; text-align: center;
             z-index: 20; pointer-events: none; display: none;
         }
-        .msg-ko { color: #fff; font-size: 26px; text-shadow: 0 0 10px rgba(0,0,0,1); font-weight: bold; margin-bottom: 10px; }
+        .msg-ko { color: #fff; font-size: 24px; text-shadow: 0 0 10px rgba(0,0,0,1); font-weight: bold; }
         .msg-ja { color: #ffeb3b; font-size: 18px; text-shadow: 0 0 10px rgba(0,0,0,1); opacity: 0; transition: opacity 1s; }
         #ui-container {
             position: absolute; bottom: 40px; width: 100%; text-align: center;
             z-index: 30; display: none;
         }
-        #description {
-            background: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 15px;
-            width: 80%; margin: 0 auto 15px; font-size: 14px; color: #333;
-        }
         #next-btn {
-            padding: 15px 45px; border-radius: 50px; border: none;
-            background: #000; color: white; font-weight: bold; font-size: 18px;
-        }
-        #instructions {
-            position: absolute; top: 50%; width: 100%; text-align: center;
-            color: white; font-size: 18px; z-index: 10; pointer-events: none;
+            padding: 15px 40px; border-radius: 50px; border: none;
+            background: #0078ff; color: white; font-weight: bold; font-size: 18px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
     </style>
 </head>
 <body>
-    <div id="instructions">画面をタップして扉を設置</div>
+    <div id="instructions">画面をポンッと<br>タップしてください</div>
 
     <div id="welcome-overlay">
-        <div class="msg-ko">어서오세요! <br>한국に 오신 것을 환영합니다!</div>
+        <div class="msg-ko">어서오세요!<br>한국에 오신 것을 환영합니다!</div>
         <div id="ja-text" class="msg-ja">韓国へようこそ！</div>
     </div>
 
     <div id="ui-container">
-        <div id="description">釜山ツアーへ出発！</div>
-        <button id="next-btn">Next Spot ✨</button>
+        <button id="next-btn">次のスポットへ ✨</button>
     </div>
 
     <script type="module">
@@ -49,17 +46,7 @@
         let doorOpened = false;
         let isPlaced = false;
 
-        const tourData = [
-            { img: './day_1.jpg', desc: "まずはカラフルな甘川洞文化村から！" },
-            { img: './day_2.jpg', desc: "星の王子さまに会いに行こう。" },
-            { img: './day_3.jpg', desc: "絶景カフェでひと休み。" },
-            { img: './night_1.jpg', desc: "夜の広安大橋はキラキラです。" },
-            { img: './night_2.jpg', desc: "The Bay 101の夜景は最高！" },
-            { img: './night_3.jpg', desc: "空飛ぶドローンショー！" },
-            { img: './morning_1.jpg', desc: "朝の海辺を散歩しましょう。" },
-            { img: './morning_2.jpg', desc: "可愛いカプセル列車に乗って。" },
-            { img: './morning_3.jpg', desc: "最後は熱々のテジクッパ！" }
-        ];
+        const tourData = ['./day_1.jpg', './day_2.jpg', './day_3.jpg', './night_1.jpg', './night_2.jpg', './night_3.jpg', './morning_1.jpg', './morning_2.jpg', './morning_3.jpg'];
         let currentIdx = 0;
         const loader = new THREE.TextureLoader();
 
@@ -68,38 +55,47 @@
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
 
-            // カメラ映像を背景に設定
+            // カメラ背景の設定
             const video = document.createElement('video');
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(stream => {
-                video.srcObject = stream;
-                video.play();
-                const videoTex = new THREE.VideoTexture(video);
-                scene.background = videoTex;
-            });
+            video.setAttribute('autoplay', '');
+            video.setAttribute('muted', '');
+            video.setAttribute('playsinline', '');
+            
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                .then(stream => {
+                    video.srcObject = stream;
+                    video.play();
+                    const videoTex = new THREE.VideoTexture(video);
+                    scene.background = videoTex;
+                })
+                .catch(err => {
+                    document.getElementById('instructions').innerText = "カメラエラー: " + err;
+                });
 
-            // 写真パネル
-            const photoGeo = new THREE.PlaneGeometry(1, 1.4);
-            photoMat = new THREE.MeshBasicMaterial({ map: loader.load(tourData[0].img), transparent: true });
+            // 写真
+            const photoGeo = new THREE.PlaneGeometry(1.2, 1.6);
+            photoMat = new THREE.MeshBasicMaterial({ map: loader.load(tourData[0]), transparent: true });
             const photoPlane = new THREE.Mesh(photoGeo, photoMat);
-            photoPlane.position.z = -2;
+            photoPlane.position.z = -2.5;
             photoPlane.visible = false;
             scene.add(photoPlane);
 
-            // 青い扉
-            const doorGeo = new THREE.PlaneGeometry(0.5, 1.4);
+            // 青い扉（左・右）
+            const doorGeo = new THREE.PlaneGeometry(0.61, 1.6); // 少しだけ幅を広くして隙間を埋める
             const doorMat = new THREE.MeshBasicMaterial({ color: 0x0078ff, side: THREE.DoubleSide, transparent: true });
             leftDoor = new THREE.Mesh(doorGeo, doorMat);
             rightDoor = new THREE.Mesh(doorGeo, doorMat);
-            leftDoor.position.set(-0.25, 0, -1.99);
-            rightDoor.position.set(0.25, 0, -1.99);
+            leftDoor.position.set(-0.3, 0, -2.49);
+            rightDoor.position.set(0.3, 0, -2.49);
             leftDoor.visible = false;
             rightDoor.visible = false;
             scene.add(leftDoor, rightDoor);
 
-            // タップイベント
-            window.addEventListener('click', () => {
+            // 配置実行ファンクション
+            const placeDoor = () => {
                 if (!isPlaced) {
                     isPlaced = true;
                     document.getElementById('instructions').style.display = 'none';
@@ -107,24 +103,26 @@
                     leftDoor.visible = true;
                     rightDoor.visible = true;
 
-                    // 0.5秒後に開く
                     setTimeout(() => {
                         doorOpened = true;
                         document.getElementById('welcome-overlay').style.display = "block";
                         setTimeout(() => {
                             document.getElementById('ja-text').style.opacity = 1;
                             document.getElementById('ui-container').style.display = "block";
-                        }, 1500);
+                        }, 1000);
                     }, 500);
                 }
-            });
+            };
+
+            // タップとクリックの両方に対応
+            window.addEventListener('touchstart', placeDoor);
+            window.addEventListener('click', placeDoor);
 
             // ボタン処理
             document.getElementById('next-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
+                e.stopPropagation(); // 背後のタップ判定を防ぐ
                 currentIdx = (currentIdx + 1) % tourData.length;
-                photoMat.map = loader.load(tourData[currentIdx].img);
-                document.getElementById('description').innerText = tourData[currentIdx].desc;
+                photoMat.map = loader.load(tourData[currentIdx]);
                 document.getElementById('welcome-overlay').style.display = "none";
             });
 
@@ -133,16 +131,16 @@
 
         function animate() {
             requestAnimationFrame(animate);
-            if (doorOpened && leftDoor.position.x > -0.75) {
-                leftDoor.position.x -= 0.01;
-                rightDoor.position.x += 0.01;
+            if (doorOpened && leftDoor.position.x > -0.9) {
+                leftDoor.position.x -= 0.015;
+                rightDoor.position.x += 0.015;
                 leftDoor.material.opacity -= 0.02;
                 rightDoor.material.opacity -= 0.02;
             }
             renderer.render(scene, camera);
         }
 
-        init();
+        window.onload = init;
     </script>
 </body>
 </html>
