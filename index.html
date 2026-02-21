@@ -3,26 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Busan AR Portal - Enhanced</title>
+<title>Busan AR Portal - Realistic Door</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
 body { margin:0; overflow:hidden; background:#000; font-family:sans-serif; }
 #tap-overlay {position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);color:white;z-index:10;}
 #btn-start {padding:15px 40px;font-size:20px;background:#bf55ec;border:none;border-radius:50px;color:white;cursor:pointer;}
 #dist-ui {position:absolute;bottom:30px;width:100%;text-align:center;color:white;font-weight:bold;z-index:5;pointer-events:none;}
+#btn-reset {position:absolute;top:20px;right:20px;padding:10px 20px;background:rgba(255,255,255,0.2);border:1px solid white;color:white;border-radius:5px;z-index:15;display:none;cursor:pointer;}
 </style>
 </head>
 <body>
 <div id="tap-overlay">
     <h2>釜山 没入体験</h2>
-    <p>長押しで前進 / スマホを左右に傾けて移動</p>
+    <p>長押しで前進 / 左右に傾けて移動</p>
     <button id="btn-start">開始</button>
 </div>
+<button id="btn-reset">最初に戻る</button>
 <div id="dist-ui">位置: 0.0m</div>
 
 <script>
 let scene, camera, renderer, portals=[], moveZ=0, targetZ=0, moveX=0, isTouch=false;
-let returned = false;
 
 function init() {
     scene = new THREE.Scene();
@@ -33,7 +34,6 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // カメラ背景
     navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}})
     .then(stream=>{
         const video=document.createElement('video');
@@ -52,41 +52,33 @@ function init() {
 
     confs.forEach(c=>{
         const group = new THREE.Group();
-        group.position.set(c.x,1.5,c.z);
+        group.position.set(c.x, 1.5, c.z);
 
-        const dGeo = new THREE.PlaneGeometry(1.2,3.5);
-        const L = new THREE.Mesh(dGeo,new THREE.MeshBasicMaterial({color:c.color, transparent:true}));
-        const R = new THREE.Mesh(dGeo,new THREE.MeshBasicMaterial({color:c.color, transparent:true}));
-        L.position.set(-0.6,0,0.1);
-        R.position.set(0.6,0,0.1);
+        // 扉：不透明(opacity:1)にして「覗き見」感を出す
+        const dGeo = new THREE.PlaneGeometry(1.2, 3.5);
+        const L = new THREE.Mesh(dGeo, new THREE.MeshBasicMaterial({color:c.color, transparent:false}));
+        const R = new THREE.Mesh(dGeo, new THREE.MeshBasicMaterial({color:c.color, transparent:false}));
+        L.position.set(-0.6, 0, 0.1);
+        R.position.set(0.6, 0, 0.1);
 
+        // 背景画像：最初から不透明にするが、最初は非表示にしておく
         const tex = loader.load(c.img);
-        tex.repeat.set(1,-1); tex.offset.set(0,1);
-        const panelGeo = new THREE.CylinderGeometry(5,5,8,32,1,true,Math.PI*0.65,Math.PI*0.7);
+        tex.repeat.set(1, -1); tex.offset.set(0, 1);
+        const panelGeo = new THREE.CylinderGeometry(5, 5, 8, 32, 1, true, Math.PI*0.65, Math.PI*0.7);
         const panelMat = new THREE.MeshBasicMaterial({map:tex, side:THREE.BackSide, transparent:true, opacity:0});
-        const panel = new THREE.Mesh(panelGeo,panelMat);
-        panel.position.set(0,0,-4.5);
+        const panel = new THREE.Mesh(panelGeo, panelMat);
+        panel.position.set(0, 0, -4.5);
 
-        // 【課題②】光の粒を小さく・少なく・繊細に
-        const partGeo = new THREE.BufferGeometry();
-        const pos = new Float32Array(200 * 3); // 個数を減らす
-        for(let i=0;i<200*3;i++) pos[i]=(Math.random()-0.5)*6;
-        partGeo.setAttribute('position', new THREE.BufferAttribute(pos,3));
-        const partMat = new THREE.PointsMaterial({color:0xffffff, size:0.01, transparent:true, opacity:0});
-        const partSystem = new THREE.Points(partGeo, partMat);
-        partSystem.position.set(0,1,-4.5);
-
-        group.add(L,R,panel,partSystem);
+        group.add(L, R, panel);
         scene.add(group);
-        portals.push({group,L,R,panel,particles:partSystem,x:c.x,z:c.z});
+        portals.push({group, L, R, panel, x:c.x, z:c.z});
     });
 
-    document.addEventListener('touchstart', e=>{ if(e.target.id!=='btn-start') isTouch=true; });
+    document.addEventListener('touchstart', e=>{ if(e.target.tagName !== 'BUTTON') isTouch=true; });
     document.addEventListener('touchend', ()=>isTouch=false);
 
     window.addEventListener('deviceorientation', e=>{
-        camera.rotation.set((e.beta-90)*Math.PI/180,0,e.alpha*Math.PI/180,'YXZ');
-        // 【課題①】左右のドアへ行けるように、傾き(gamma)で横移動
+        camera.rotation.set((e.beta-90)*Math.PI/180, 0, e.alpha*Math.PI/180, 'YXZ');
         if(e.gamma) moveX = e.gamma * 0.08; 
     });
 
@@ -96,10 +88,9 @@ function init() {
 function animate() {
     requestAnimationFrame(animate);
 
-    if(isTouch) targetZ += 0.05;
+    if(isTouch) targetZ += 0.04;
     moveZ += (targetZ - moveZ) * 0.1;
     
-    // X軸の動き（左右）も滑らかに反映
     camera.position.x += (moveX - camera.position.x) * 0.1;
     camera.position.z = -moveZ;
 
@@ -110,39 +101,38 @@ function animate() {
 
         if(dist < 8){
             p.group.visible = true;
-            // 2.5mまで近づいたらドアが開き始める
+            
+            // 2.5m以内に入ったら扉を動かす
             const openProgress = THREE.MathUtils.clamp((2.5-dist)/2.5, 0, 1);
 
-            p.L.position.x = THREE.MathUtils.lerp(-0.6, -2.5, openProgress);
-            p.R.position.x = THREE.MathUtils.lerp(0.6, 2.5, openProgress);
-            p.L.material.opacity = p.R.material.opacity = 1 - openProgress;
-
-            // 写真と粒を表示
-            p.panel.material.opacity = openProgress;
-            p.particles.material.opacity = openProgress;
-            p.particles.rotation.y += 0.002; // 粒をゆっくり回転させる
-
-            // 【課題③】パネルに完全に重なったらリセット（表示時間を長く）
-            if(dist < 0.2 && !returned){
-                returned = true;
-                setTimeout(()=>{
-                    moveZ = targetZ = 0; // スタートへ
-                    moveX = camera.position.x = 0; // 中央へ戻す
-                    returned = false;
-                }, 4000); // 4秒間、写真をじっくり見せる
+            // 扉をゆっくり左右にスライド
+            p.L.position.x = THREE.MathUtils.lerp(p.L.position.x, openProgress > 0 ? -2.5 : -0.6, 0.02);
+            p.R.position.x = THREE.MathUtils.lerp(p.R.position.x, openProgress > 0 ? 2.5 : 0.6, 0.02);
+            
+            // 【重要】画像はフェードインさせず、扉が動いた瞬間には「既にそこにある」ように見せる
+            // ただし、完全に離れている時は描画負荷を下げるためopacity 0にする
+            if(dist < 5) {
+                p.panel.material.opacity = 1;
             }
         } else {
             p.group.visible = false;
+            p.panel.material.opacity = 0;
         }
     });
 
     document.getElementById('dist-ui').innerText = `位置: ${moveZ.toFixed(1)}m`;
-    renderer.render(scene,camera);
+    renderer.render(scene, camera);
 }
 
 document.getElementById('btn-start').onclick = ()=>{
     init();
     document.getElementById('tap-overlay').style.display='none';
+    document.getElementById('btn-reset').style.display='block';
+};
+
+document.getElementById('btn-reset').onclick = ()=>{
+    moveZ = targetZ = 0;
+    moveX = camera.position.x = 0;
 };
 </script>
 </body>
