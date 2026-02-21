@@ -78,5 +78,93 @@
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                 const video = document.createElement('video');
                 video.srcObject = stream; video.setAttribute('playsinline', ''); video.play();
-                scene.
+                scene.background = new THREE.VideoTexture(video);
+            } catch (err) { console.error(err); }
 
+            // 奥行きポータル
+            const roomGeo = new THREE.BoxGeometry(2, 2, 4);
+            const roomMats = [
+                new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.BackSide }),
+                new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.BackSide }),
+                new THREE.MeshBasicMaterial({ color: 0x050505, side: THREE.BackSide }),
+                new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide }),
+                new THREE.MeshBasicMaterial({ map: loader.load(tourImages[0]), side: THREE.BackSide }),
+                new THREE.MeshBasicMaterial({ visible: false })
+            ];
+            portalRoom = new THREE.Mesh(roomGeo, roomMats);
+            portalRoom.position.z = -4;
+            portalRoom.visible = false;
+            scene.add(portalRoom);
+
+            // 空飛ぶ電車
+            train = new THREE.Mesh(
+                new THREE.BoxGeometry(0.4, 0.3, 0.3),
+                new THREE.MeshBasicMaterial({ color: trainColors[0] })
+            );
+            train.position.set(3, 0.4, -2.5); 
+            train.visible = false;
+            scene.add(train);
+
+            // 扉
+            const doorMat = new THREE.MeshBasicMaterial({ color: 0x0078ff, transparent: true });
+            leftDoor = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 2.5), doorMat);
+            rightDoor = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 2.5), doorMat);
+            leftDoor.position.set(-0.6, 0, -2.01);
+            rightDoor.position.set(0.6, 0, -2.01);
+            leftDoor.visible = false; rightDoor.visible = false;
+            scene.add(leftDoor, rightDoor);
+
+            const handleAction = () => {
+                if (!isPlaced) {
+                    isPlaced = true;
+                    document.getElementById('tap-overlay').style.display = 'none';
+                    portalRoom.visible = true; leftDoor.visible = true; rightDoor.visible = true;
+                    
+                    setTimeout(() => { 
+                        doorOpened = true; 
+                        document.getElementById('welcome-overlay').style.display = "block";
+                        document.getElementById('ui-container').style.display = "block";
+
+                        // --- 日本語メッセージを5秒遅らせて表示 ---
+                        setTimeout(() => {
+                            document.getElementById('ja-text').style.opacity = 1;
+                        }, 5000); 
+                    }, 500);
+                }
+            };
+            document.getElementById('tap-overlay').addEventListener('click', handleAction);
+            document.getElementById('tap-overlay').addEventListener('touchstart', handleAction);
+
+            document.getElementById('train-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (isTrainRunning) return;
+                isTrainRunning = true; train.visible = true; train.position.x = 3;
+                train.material.color.setHex(trainColors[trainColorIdx]);
+                setTimeout(() => {
+                    trainColorIdx = (trainColorIdx + 1) % trainColors.length;
+                    portalRoom.material[4].map = loader.load(tourImages[trainColorIdx % tourImages.length]);
+                }, 2000); 
+            });
+
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (doorOpened && leftDoor.position.x > -1.8) {
+                leftDoor.position.x -= 0.0015;
+                rightDoor.position.x += 0.0015;
+                leftDoor.material.opacity -= 0.003;
+                rightDoor.material.opacity -= 0.003;
+            }
+            if (isTrainRunning) {
+                train.position.x -= 0.012;
+                train.rotation.y += 0.01;
+                if (train.position.x < -3) { isTrainRunning = false; train.visible = false; }
+            }
+            renderer.render(scene, camera);
+        }
+        window.onload = init;
+    </script>
+</body>
+</html>
