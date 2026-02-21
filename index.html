@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Busan Portal</title>
+    <title>Busan AR Portal</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
         #tap-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); color: white; }
         #btn-start { padding: 15px 40px; font-size: 20px; background: #bf55ec; color: white; border: none; border-radius: 50px; }
-        #dist-ui { position: absolute; bottom: 30px; width: 100%; text-align: center; color: white; font-weight: bold; text-shadow: 0 0 5px #000; pointer-events: none; }
+        #dist-ui { position: absolute; bottom: 30px; width: 100%; text-align: center; color: white; font-weight: bold; pointer-events: none; }
     </style>
 </head>
 <body>
     <div id="tap-overlay">
         <h2>釜山 没入体験</h2>
-        <p>画面を長押しで前進</p>
+        <p>画面を長押しで前進 / 周りを見渡せます</p>
         <button id="btn-start">開始</button>
     </div>
     <div id="dist-ui">位置: 0.0m</div>
@@ -34,49 +34,52 @@
             renderer.setPixelRatio(window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
 
-            // カメラ背景
+            // 背景カメラ（ビデオテクスチャ）
             navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-                .then(s => { const v = document.createElement('video'); v.srcObject = s; v.play(); scene.background = new THREE.VideoTexture(v); });
+                .then(s => { const v = document.createElement('video'); v.srcObject = s; v.setAttribute('playsinline', ''); v.play(); scene.background = new THREE.VideoTexture(v); });
 
-            // 門の設定（ここで3枚分を管理）
+            // 門の設定
             const confs = [
-                { z: -5,  img: './day_1.jpg', color: 0x87CEEB }, // 1. 飛行機
-                { z: -15, img: './day_2.jpg', color: 0x8B4513 }, // 2. 昼の街
-                { z: -25, img: './night_1.jpg', color: 0xbf55ec } // 3. 夜景
+                { z: -5,  img: './day_1.jpg', color: 0x87CEEB },
+                { z: -15, img: './day_2.jpg', color: 0x8B4513 },
+                { z: -25, img: './night_1.jpg', color: 0xbf55ec }
             ];
 
             confs.forEach(c => {
                 const group = new THREE.Group();
-                group.position.set(0, 1.5, c.z);
+                group.position.set(0, 1.5, c.z); // 門を世界座標に配置
 
-                // ドア (共通)
+                // 扉
                 const dGeo = new THREE.PlaneGeometry(1.2, 3.5);
                 const dMat = new THREE.MeshBasicMaterial({ color: c.color, transparent: true, opacity: 0 });
                 const L = new THREE.Mesh(dGeo, dMat); L.position.set(-0.6, 0, 0.1);
                 const R = new THREE.Mesh(dGeo, dMat.clone()); R.position.set(0.6, 0, 0.1);
 
-                // 【修正済】写真パネル（上下反転と位置ズレを解消）
+                // 写真パネル（上下反転と向きを修正）
                 const tex = loader.load(c.img);
-                tex.repeat.y = -1; tex.offset.y = 1; // 上下反転を直す
+                tex.repeat.y = -1; tex.offset.y = 1; // 上下反転修正
 
-                // 第6引数 0.65 で正面、第7引数 0.7 で表示幅を調整
+                // 第6引数(0.65)で正面にくるように調整。第7引数(0.7)で視野角。
                 const pGeo = new THREE.CylinderGeometry(5, 5, 8, 32, 1, true, Math.PI * 0.65, Math.PI * 0.7);
                 const pMat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, transparent: true, opacity: 0 });
                 const panel = new THREE.Mesh(pGeo, pMat);
-                panel.position.set(0, 0, -4.5);
+                panel.position.set(0, 0, -4.5); // 門の奥に固定
 
                 group.add(L, R, panel);
                 scene.add(group);
                 portals.push({ group, L, R, panel, z: c.z });
             });
 
-            // 操作
+            // 操作イベント
             document.addEventListener('touchstart', e => { if(e.target.id !== 'btn-start') isTouch = true; });
             document.addEventListener('touchend', () => isTouch = false);
+            
+            // 向きセンサー（カメラの向きだけを変え、パネルは動かさない）
             window.addEventListener('deviceorientation', e => {
-                const q = new THREE.Quaternion();
-                const euler = new THREE.Euler((e.beta-90)*Math.PI/180, 0, e.alpha*Math.PI/180, 'YXZ');
-                camera.quaternion.setFromEuler(euler);
+                const alpha = e.alpha ? THREE.MathUtils.degToRad(e.alpha) : 0;
+                const beta = e.beta ? THREE.MathUtils.degToRad(e.beta) : 0;
+                // 'YXZ'順で回転を適用（ブラウザの仕様に合わせる）
+                camera.rotation.set(beta - Math.PI/2, 0, alpha, 'YXZ');
             });
 
             animate();
@@ -84,19 +87,19 @@
 
         function animate() {
             requestAnimationFrame(animate);
-            if (isTouch) targetZ += 0.02; // スピード調整
-            moveZ += (targetZ - moveZ) * 0.1; // ヌルヌル移動
+            if (isTouch) targetZ += 0.02;
+            moveZ += (targetZ - moveZ) * 0.1;
             camera.position.z = -moveZ;
 
             portals.forEach(p => {
                 const d = Math.abs(camera.position.z - p.z);
-                p.group.visible = d < 8;
+                p.group.visible = d < 8; // 遠い門は非表示にして負荷軽減
                 
-                if (d < 2.5) { // 門が開く
+                if (d < 2.5) { // 接近するとドアが開く
                     p.L.position.x = THREE.MathUtils.lerp(p.L.position.x, -2.5, 0.05);
                     p.R.position.x = THREE.MathUtils.lerp(p.R.position.x, 2.5, 0.05);
                     p.panel.material.opacity = THREE.MathUtils.lerp(p.panel.material.opacity, 1, 0.05);
-                } else { // 門が閉じる
+                } else {
                     p.L.position.x = THREE.MathUtils.lerp(p.L.position.x, -0.6, 0.05);
                     p.R.position.x = THREE.MathUtils.lerp(p.R.position.x, 0.6, 0.05);
                     p.panel.material.opacity = THREE.MathUtils.lerp(p.panel.material.opacity, 0, 0.05);
