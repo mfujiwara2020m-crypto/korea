@@ -88,22 +88,31 @@
             portals.forEach(p => {
                 const d = Math.abs(camera.position.z - p.z);
                 
+                // 門の有効範囲 (8m以内)
                 if (d < 8.0) {
                     p.group.visible = true;
-                    // ドアが開く前から景色を表示しておく
+                    // 【重要修正】近づいたら、透明になっていた写真を「1」に戻して表示させる
                     p.panel.material.opacity = 1; 
-                }
 
-                if (d < 2.5) { 
-                    p.L.position.x = THREE.MathUtils.lerp(p.L.position.x, -2.5, 0.05);
-                    p.R.position.x = THREE.MathUtils.lerp(p.R.position.x, 2.5, 0.05);
-                    // 門をくぐり抜ける時にドアを透明にして邪魔にならないようにする
-                    if (d < 0.5) p.L.material.opacity = p.R.material.opacity = 0;
+                    if (d < 2.5) { 
+                        // ドアが開く
+                        p.L.position.x = THREE.MathUtils.lerp(p.L.position.x, -2.5, 0.05);
+                        p.R.position.x = THREE.MathUtils.lerp(p.R.position.x, 2.5, 0.05);
+                        // 通り抜ける瞬間(0.8m以内)にドアを消す
+                        if (d < 0.8) p.L.material.opacity = p.R.material.opacity = 0;
+                    } else {
+                        // ドアを閉じる
+                        p.L.position.x = THREE.MathUtils.lerp(p.L.position.x, -0.6, 0.05);
+                        p.R.position.x = THREE.MathUtils.lerp(p.R.position.x, 0.6, 0.05);
+                        p.L.material.opacity = p.R.material.opacity = 1;
+                    }
                 } else {
-                    p.L.position.x = THREE.MathUtils.lerp(p.L.position.x, -0.6, 0.05);
-                    p.R.position.x = THREE.MathUtils.lerp(p.R.position.x, 0.6, 0.05);
-                    p.L.material.opacity = p.R.material.opacity = 1;
-                    if (d > 3.0) p.panel.material.opacity = 0;
+                    // 遠すぎるときは非表示
+                    p.group.visible = false;
+                    // 【重要修正】通り過ぎた後、完全に離れたら透明にする
+                    if (camera.position.z < p.z - 1.0) {
+                        p.panel.material.opacity = 0;
+                    }
                 }
             });
             document.getElementById('dist-ui').innerText = `位置: ${moveZ.toFixed(1)}m`;
@@ -114,3 +123,4 @@
     </script>
 </body>
 </html>
+
