@@ -1,146 +1,18 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Busan Door AR - Full Code</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap" rel="stylesheet">
-    <style>
-        body { margin: 0; overflow: hidden; font-family: 'Gowun Dodum', sans-serif; background: #000; }
-        
-        #welcome-overlay {
-            position: absolute; top: 15%; width: 100%; text-align: center;
-            z-index: 20; pointer-events: none; display: none;
-        }
-        .msg-ko { color: #fff; font-size: 26px; text-shadow: 0 0 10px rgba(0,0,0,1); font-weight: bold; margin-bottom: 10px; }
-        .msg-ja { color: #ffeb3b; font-size: 18px; text-shadow: 0 0 10px rgba(0,0,0,1); opacity: 0; transition: opacity 1s; }
-
-        #ui-container {
-            position: absolute; bottom: 40px; width: 100%; text-align: center;
-            z-index: 30; display: none;
-        }
-        #description {
-            background: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 15px;
-            width: 80%; margin: 0 auto 15px; font-size: 14px; color: #333; line-height: 1.4;
-        }
-        #next-btn {
-            padding: 15px 45px; border-radius: 50px; border: none;
-            background: #000; color: white; font-weight: bold; font-size: 18px;
-            cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        }
-        #loading {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            color: white; font-size: 14px; text-align: center;
-        }
-    </style>
-</head>
+<head><meta charset="utf-8"></head>
 <body>
-    <div id="loading">カメラを起動中...<br>(HTTPSで開いてください)</div>
-
-    <div id="welcome-overlay">
-        <div class="msg-ko">어서오세요! <br>한국에 오신 것을 환영합니다!</div>
-        <div id="ja-text" class="msg-ja">韓国へようこそ！</div>
-    </div>
-
-    <div id="ui-container">
-        <div id="description">Ready for the Busan Tour?</div>
-        <button id="next-btn">Next Spot ✨</button>
-    </div>
-
-    <div id="container"></div>
-
-    <script type="module">
-        const mindarThree = new window.MINDAR.IMAGE.MindARThree({
-            container: document.querySelector("#container"),
-            // 本番：作成した .mind ファイルを使う場合
-            imageTargetSrc: './targets.mind',
-            // テキスト用サンプル：カードの画像にかざすと動くURL
-            // imageTargetSrc: 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js/../examples/assets/card-example/card.mind',
+    <h1 id="status">カメラ起動テスト中...</h1>
+    <video id="v" autoplay playsinline style="width:100%"></video>
+    <script>
+        navigator.mediaDevices.getUserMedia({video: true})
+        .then(s => {
+            document.getElementById('v').srcObject = s;
+            document.getElementById('status').innerText = "カメラ成功！次はARです。";
+        })
+        .catch(e => {
+            document.getElementById('status').innerText = "エラー: " + e;
         });
-        const {renderer, scene, camera} = mindarThree;
-
-        // --- 1. 全9枚のデータ ---
-        const tourData = [
-            { img: './day_1.jpg', title: "감천문화마을 (甘川洞文化村)", desc: "まずはカラフルな村からスタート！" },
-            { img: './day_2.jpg', title: "어린 왕자 (星の王子さま)", desc: "村を見守る王子さまを探して。" },
-            { img: './day_3.jpg', title: "감내카페 (甘内カフェ)", desc: "景色を楽しみながらひと休み。" },
-            { img: './night_1.jpg', title: "광안대교 (広安大橋)", desc: "夜に輝くダイヤモンドブリッジ。" },
-            { img: './night_2.jpg', title: "더베이101 (The Bay 101)", desc: "水面に映る都会の夜景。" },
-            { img: './night_3.jpg', title: "드론쇼 (ドローンショー)", desc: "夜空を彩るドローンの光。" },
-            { img: './morning_1.jpg', title: "해운대 해수욕장 (海雲台)", desc: "朝の静かなビーチを散歩。" },
-            { img: './morning_2.jpg', title: "해운대 블루라인파크", desc: "海沿いを走る可愛いカプセル。" },
-            { img: './morning_3.jpg', title: "돼지국밥 (テジクッパ)", desc: "最後は釜山名物の朝ごはんで締め！" }
-        ];
-
-        let currentIdx = 0;
-        const loader = new THREE.TextureLoader();
-
-        // --- 2. 3Dオブジェクトの配置 ---
-        // メインパネル
-        const photoGeo = new THREE.PlaneGeometry(1, 1.4);
-        const photoMat = new THREE.MeshBasicMaterial({map: loader.load(tourData[0].img)});
-        const photoPlane = new THREE.Mesh(photoGeo, photoMat);
-        
-        // 青い扉（左右）
-        const doorGeo = new THREE.PlaneGeometry(0.5, 1.4);
-        const doorMat = new THREE.MeshBasicMaterial({color: 0x0078ff, side: THREE.DoubleSide, transparent: true});
-        const leftDoor = new THREE.Mesh(doorGeo, doorMat);
-        const rightDoor = new THREE.Mesh(doorGeo, doorMat);
-        leftDoor.position.set(-0.25, 0, 0.01);
-        rightDoor.position.set(0.25, 0, 0.01);
-
-        const anchor = mindarThree.addAnchor(0);
-        anchor.group.add(photoPlane);
-        anchor.group.add(leftDoor);
-        anchor.group.add(rightDoor);
-
-        let doorOpened = false;
-        let animationStarted = false;
-
-        // マーカーを見つけた時
-        anchor.onTargetFound = () => {
-            document.getElementById('loading').style.display = "none";
-            if (!animationStarted) {
-                animationStarted = true;
-                setTimeout(() => {
-                    document.getElementById('welcome-overlay').style.display = "block";
-                    doorOpened = true; // アニメーション開始
-                    
-                    setTimeout(() => {
-                        document.getElementById('ja-text').style.opacity = 1;
-                        document.getElementById('ui-container').style.display = "block";
-                    }, 1500);
-                }, 800);
-            }
-        };
-
-        // ボタンクリック処理
-        document.getElementById('next-btn').addEventListener('click', () => {
-            currentIdx = (currentIdx + 1) % tourData.length;
-            photoMat.map = loader.load(tourData[currentIdx].img);
-            document.getElementById('description').innerText = tourData[currentIdx].desc;
-            document.getElementById('welcome-overlay').style.display = "none";
-        });
-
-        const start = async() => {
-            try {
-                await mindarThree.start();
-                document.getElementById('loading').innerText = "飛行機のイラストをスキャンしてください";
-                renderer.setAnimationLoop(() => {
-                    if (doorOpened && leftDoor.position.x > -0.75) {
-                        leftDoor.position.x -= 0.008;
-                        rightDoor.position.x += 0.008;
-                        leftDoor.material.opacity -= 0.015;
-                        rightDoor.material.opacity -= 0.015;
-                    }
-                    renderer.render(scene, camera);
-                });
-            } catch (err) {
-                document.getElementById('loading').innerHTML = "エラー: HTTPS接続とカメラ許可を確認してください<br>" + err;
-            }
-        }
-        start();
     </script>
 </body>
 </html>
