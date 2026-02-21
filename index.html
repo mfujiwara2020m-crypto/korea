@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>AR 3ドア 没入型</title>
+<title>AR 3ドア 没入型 完全版</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
 body { margin:0; overflow:hidden; background:#000; font-family:sans-serif; }
@@ -14,18 +14,20 @@ body { margin:0; overflow:hidden; background:#000; font-family:sans-serif; }
 </head>
 <body>
 <div id="tap-overlay">
-    <h2>AR 3ドア 没入型</h2>
+    <h2>AR 3ドア 没入型 完全版</h2>
     <button id="btn-start">開始</button>
 </div>
 <div id="dist-ui">位置: 0.0m</div>
 
 <script>
 let scene, camera, renderer, portals=[], moveZ=0, targetZ=0, isTouch=false;
+const START_Z = 0; // スタート位置
+const END_Z = 20;  // 奥まで進んだ距離
 
 function init() {
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-    camera.position.set(0,1.6,0);
+    camera.position.set(0,1.6,START_Z);
 
     renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -43,9 +45,9 @@ function init() {
 
     const loader = new THREE.TextureLoader();
     const confs = [
-        {x:-3, z:-5, color:0x87CEEB},
-        {x:0,  z:-5, color:0x8B4513},
-        {x:3,  z:-5, color:0xbf55ec}
+        {x:-3, z:-5, img:'./day_1.jpg', color:0x87CEEB},
+        {x:0,  z:-5, img:'./day_2.jpg', color:0x8B4513},
+        {x:3,  z:-5, img:'./night_1.jpg', color:0xbf55ec}
     ];
 
     confs.forEach(c=>{
@@ -59,27 +61,23 @@ function init() {
         L.position.set(-0.6,0,0.1);
         R.position.set(0.6,0,0.1);
 
-        // 奥の映像用動画パネル（360°動画の代わり）
-        const videoEl = document.createElement('video');
-        videoEl.src = './immersive_loop.mp4'; // ループ動画を用意
-        videoEl.loop = true; videoEl.muted = true; videoEl.play();
-        const videoTex = new THREE.VideoTexture(videoEl);
-
+        // 奥のパネル（写真）
+        const tex = loader.load(c.img);
+        tex.repeat.set(1,-1); tex.offset.set(0,1);
         const panelGeo = new THREE.CylinderGeometry(5,5,8,32,1,true,Math.PI*0.65,Math.PI*0.7);
-        const panelMat = new THREE.MeshBasicMaterial({map:videoTex, side:THREE.BackSide, transparent:true, opacity:0});
+        const panelMat = new THREE.MeshBasicMaterial({map:tex, side:THREE.BackSide, transparent:true, opacity:0});
         const panel = new THREE.Mesh(panelGeo,panelMat);
         panel.position.set(0,0,-4.5);
 
-        // パーティクルで光のエフェクト
+        // パーティクル光
         const partGeo = new THREE.BufferGeometry();
         const particles = 500;
         const pos = new Float32Array(particles*3);
         for(let i=0;i<particles*3;i++) pos[i]=(Math.random()-0.5)*6;
         partGeo.setAttribute('position', new THREE.BufferAttribute(pos,3));
-        const partMat = new THREE.PointsMaterial({color:0xffffaa, size:0.05});
+        const partMat = new THREE.PointsMaterial({color:0xffffaa, size:0.05, transparent:true, opacity:0});
         const partSystem = new THREE.Points(partGeo, partMat);
         partSystem.position.set(0,1,-4.5);
-        partSystem.visible = false;
 
         group.add(L,R,panel,partSystem);
         scene.add(group);
@@ -91,7 +89,7 @@ function init() {
     document.addEventListener('touchend', ()=>isTouch=false);
 
     window.addEventListener('deviceorientation', e=>{
-        camera.rotation.set((e.beta-90)*Math.PI/180, 0, e.alpha*Math.PI/180,'YXZ');
+        camera.rotation.set((e.beta-90)*Math.PI/180,0,e.alpha*Math.PI/180,'YXZ');
     });
 
     animate();
@@ -100,9 +98,14 @@ function init() {
 function animate() {
     requestAnimationFrame(animate);
 
-    if(isTouch) targetZ+=0.02;
+    if(isTouch) targetZ+=0.05;
     moveZ += (targetZ-moveZ)*0.1;
     camera.position.z = -moveZ;
+
+    // 奥まで行ったらスタートに戻す
+    if(moveZ > END_Z){
+        moveZ = targetZ = START_Z;
+    }
 
     portals.forEach(p=>{
         const dz = camera.position.z - p.z;
@@ -111,20 +114,24 @@ function animate() {
 
         if(dist<8){
             p.group.visible = true;
-            // ドアを開く距離で動画＆パーティクルを表示
-            const open = dist<2.5;
-            p.panel.material.opacity = open ? 1 : 0;
-            p.particles.visible = open;
 
-            // ドア開閉
-            p.L.position.x = THREE.MathUtils.lerp(p.L.position.x, open?-2.5:-0.6,0.05);
-            p.R.position.x = THREE.MathUtils.lerp(p.R.position.x, open?2.5:0.6,0.05);
-            if(dist<0.8) p.L.material.opacity = p.R.material.opacity = 0;
-            else p.L.material.opacity = p.R.material.opacity = 1;
+            // ドア開閉率
+            const openProgress = THREE.MathUtils.clamp((2.5-dist)/2.5,0,1);
+
+            // ドア左右位置補間
+            const targetLX = THREE.MathUtils.lerp(-0.6,-2.5,openProgress);
+            const targetRX = THREE.MathUtils.lerp(0.6,2.5,openProgress);
+            p.L.position.x = THREE.MathUtils.lerp(p.L.position.x,targetLX,0.05);
+            p.R.position.x = THREE.MathUtils.lerp(p.R.position.x,targetRX,0.05);
+
+            // ドア・パネル・パーティクルのフェード
+            p.L.material.opacity = p.R.material.opacity = 1 - openProgress;
+            p.panel.material.opacity = openProgress;
+            p.particles.material.opacity = openProgress;
         } else {
             p.group.visible=false;
-            if(camera.position.z<p.z) p.panel.material.opacity=0;
-            p.particles.visible=false;
+            p.panel.material.opacity=0;
+            p.particles.material.opacity=0;
         }
     });
 
