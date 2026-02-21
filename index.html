@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>AR 3ドア 没入型 完全版</title>
+<title>AR 3ドア 没入型 完全版 修正版</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
 body { margin:0; overflow:hidden; background:#000; font-family:sans-serif; }
@@ -14,15 +14,15 @@ body { margin:0; overflow:hidden; background:#000; font-family:sans-serif; }
 </head>
 <body>
 <div id="tap-overlay">
-    <h2>AR 3ドア 没入型 完全版</h2>
+    <h2>AR 3ドア 没入型 修正版</h2>
     <button id="btn-start">開始</button>
 </div>
 <div id="dist-ui">位置: 0.0m</div>
 
 <script>
 let scene, camera, renderer, portals=[], moveZ=0, targetZ=0, isTouch=false;
-const START_Z = 0; // スタート位置
-const END_Z = 20;  // 奥まで進んだ距離
+const START_Z = 0; 
+let returned = false; // パネル到達リセット用
 
 function init() {
     scene = new THREE.Scene();
@@ -33,7 +33,6 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // カメラ映像
     navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}})
     .then(stream=>{
         const video=document.createElement('video');
@@ -54,14 +53,12 @@ function init() {
         const group = new THREE.Group();
         group.position.set(c.x,1.5,c.z);
 
-        // ドア
         const dGeo = new THREE.PlaneGeometry(1.2,3.5);
         const L = new THREE.Mesh(dGeo,new THREE.MeshBasicMaterial({color:c.color, transparent:true}));
         const R = new THREE.Mesh(dGeo,new THREE.MeshBasicMaterial({color:c.color, transparent:true}));
         L.position.set(-0.6,0,0.1);
         R.position.set(0.6,0,0.1);
 
-        // 奥のパネル（写真）
         const tex = loader.load(c.img);
         tex.repeat.set(1,-1); tex.offset.set(0,1);
         const panelGeo = new THREE.CylinderGeometry(5,5,8,32,1,true,Math.PI*0.65,Math.PI*0.7);
@@ -69,7 +66,6 @@ function init() {
         const panel = new THREE.Mesh(panelGeo,panelMat);
         panel.position.set(0,0,-4.5);
 
-        // パーティクル光
         const partGeo = new THREE.BufferGeometry();
         const particles = 500;
         const pos = new Float32Array(particles*3);
@@ -102,11 +98,6 @@ function animate() {
     moveZ += (targetZ-moveZ)*0.1;
     camera.position.z = -moveZ;
 
-    // 奥まで行ったらスタートに戻す
-    if(moveZ > END_Z){
-        moveZ = targetZ = START_Z;
-    }
-
     portals.forEach(p=>{
         const dz = camera.position.z - p.z;
         const dx = camera.position.x - p.x;
@@ -114,20 +105,25 @@ function animate() {
 
         if(dist<8){
             p.group.visible = true;
-
-            // ドア開閉率
             const openProgress = THREE.MathUtils.clamp((2.5-dist)/2.5,0,1);
 
-            // ドア左右位置補間
-            const targetLX = THREE.MathUtils.lerp(-0.6,-2.5,openProgress);
-            const targetRX = THREE.MathUtils.lerp(0.6,2.5,openProgress);
-            p.L.position.x = THREE.MathUtils.lerp(p.L.position.x,targetLX,0.05);
-            p.R.position.x = THREE.MathUtils.lerp(p.R.position.x,targetRX,0.05);
+            // ドア左右位置固定で安定
+            p.L.position.x = THREE.MathUtils.lerp(-0.6,-2.5,openProgress);
+            p.R.position.x = THREE.MathUtils.lerp(0.6,2.5,openProgress);
 
-            // ドア・パネル・パーティクルのフェード
+            // ドア・パネル・パーティクル
             p.L.material.opacity = p.R.material.opacity = 1 - openProgress;
             p.panel.material.opacity = openProgress;
             p.particles.material.opacity = openProgress;
+
+            // パネル到達でスタートに戻す
+            if(openProgress >= 0.95 && !returned){
+                returned = true;
+                setTimeout(()=>{
+                    moveZ = targetZ = 0;
+                    returned = false;
+                }, 1000); // 1秒後リセット
+            }
         } else {
             p.group.visible=false;
             p.panel.material.opacity=0;
