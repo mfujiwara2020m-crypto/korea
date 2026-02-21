@@ -2,86 +2,26 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Busan Immersive AR</title>
+    <title>Busan 3D Portal AR</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap" rel="stylesheet">
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Gowun Dodum', sans-serif; background: #000; touch-action: none; }
-        
-        /* 操作ガイド */
-        #instructions {
-            position: absolute; top: 50%; width: 100%; text-align: center;
-            color: white; font-size: 20px; z-index: 100; font-weight: bold;
-            text-shadow: 2px 2px 5px rgba(0,0,0,0.8); pointer-events: none;
-        }
-
-        /* メッセージエリア */
-        #welcome-overlay {
-            position: absolute; top: 15%; width: 100%; text-align: center;
-            z-index: 20; pointer-events: none; display: none;
-        }
-
-        /* ハングル：紫で大きく */
-        .msg-ko { 
-            color: #bf55ec; 
-            font-size: 34px; 
-            font-weight: 800; 
-            text-shadow: 0 0 15px rgba(255,255,255,0.4), 2px 2px 5px rgba(0,0,0,0.8); 
-            margin-bottom: 10px;
-            letter-spacing: 2px;
-            line-height: 1.2;
-        }
-
-        /* 日本語：白で小さく */
-        .msg-ja { 
-            color: #ffffff; 
-            font-size: 16px; 
-            font-weight: 400;
-            text-shadow: 1px 1px 5px rgba(0,0,0,0.8); 
-            opacity: 0; 
-            transition: opacity 1.5s;
-            letter-spacing: 1px;
-        }
-
-        /* UIエリア */
-        #ui-container {
-            position: absolute; bottom: 40px; width: 100%; text-align: center;
-            z-index: 30; display: none;
-        }
-        #next-btn {
-            padding: 15px 40px; border-radius: 50px; border: none;
-            background: rgba(255, 255, 255, 0.2); 
-            color: white; font-weight: bold; font-size: 16px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.3);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        }
+        #instructions { position: absolute; top: 50%; width: 100%; text-align: center; color: white; font-size: 18px; z-index: 100; text-shadow: 2px 2px 5px #000; }
+        #welcome-overlay { position: absolute; top: 15%; width: 100%; text-align: center; z-index: 20; pointer-events: none; display: none; }
+        .msg-ko { color: #bf55ec; font-size: 34px; font-weight: 800; text-shadow: 0 0 10px #fff; }
+        #ui-container { position: absolute; bottom: 40px; width: 100%; text-align: center; z-index: 30; display: none; }
+        #train-btn { padding: 15px 40px; border-radius: 50px; border: none; background: #ffeb3b; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div id="instructions">画面をタップして<br>釜山への扉を開く</div>
-
-    <div id="welcome-overlay">
-        <div class="msg-ko">어서오세요!<br>부산에 오신 것을<br>환영합니다!</div>
-        <div id="ja-text" class="msg-ja">― 釜山へようこそ ―</div>
-    </div>
-
-    <div id="ui-container">
-        <button id="next-btn">Explore Next Spot ✨</button>
-    </div>
+    <div id="instructions">画面をタップして<br>異次元の入り口を設置</div>
+    <div id="welcome-overlay"><div class="msg-ko">BUSAN PORTAL</div></div>
+    <div id="ui-container"><button id="train-btn">電車を通過させる 🚃</button></div>
 
     <script type="module">
-        let scene, camera, renderer, photoMat, leftDoor, rightDoor;
-        let doorOpened = false;
-        let isPlaced = false;
-
-        // 画像リスト（ファイル名が正しいか確認してください）
-        const tourData = [
-            './day_1.jpg', './day_2.jpg', './day_3.jpg', 
-            './night_1.jpg', './night_2.jpg', './night_3.jpg', 
-            './morning_1.jpg', './morning_2.jpg', './morning_3.jpg'
-        ];
-        let currentIdx = 0;
+        let scene, camera, renderer, portalRoom, leftDoor, rightDoor, train;
+        let doorOpened = false, isPlaced = false, isTrainRunning = false;
         const loader = new THREE.TextureLoader();
 
         function init() {
@@ -89,74 +29,71 @@
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
 
             // カメラ背景
             const video = document.createElement('video');
-            video.setAttribute('autoplay', '');
-            video.setAttribute('muted', '');
-            video.setAttribute('playsinline', '');
-            
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-                .then(stream => {
-                    video.srcObject = stream;
-                    video.play();
-                    const videoTex = new THREE.VideoTexture(video);
-                    scene.background = videoTex;
-                });
+            video.setAttribute('autoplay', ''); video.setAttribute('muted', ''); video.setAttribute('playsinline', '');
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(stream => {
+                video.srcObject = stream; video.play();
+                scene.background = new THREE.VideoTexture(video);
+            });
 
-            // 写真パネル
-            const photoGeo = new THREE.PlaneGeometry(1.2, 1.6);
-            photoMat = new THREE.MeshBasicMaterial({ map: loader.load(tourData[0]), transparent: true });
-            const photoPlane = new THREE.Mesh(photoGeo, photoMat);
-            photoPlane.position.z = -2.5;
-            photoPlane.visible = false;
-            scene.add(photoPlane);
+            // --- 立体的なポータル空間（奥行きを作る） ---
+            const roomGeo = new THREE.BoxGeometry(2, 2, 2);
+            // 内側にテクスチャを貼る設定
+            const roomMats = [
+                new THREE.MeshBasicMaterial({ color: 0x444444, side: THREE.BackSide }), // 右
+                new THREE.MeshBasicMaterial({ color: 0x444444, side: THREE.BackSide }), // 左
+                new THREE.MeshBasicMaterial({ color: 0x333333, side: THREE.BackSide }), // 上
+                new THREE.MeshBasicMaterial({ color: 0x222222, side: THREE.BackSide }), // 下
+                new THREE.MeshBasicMaterial({ map: loader.load('./day_1.jpg'), side: THREE.BackSide }), // 奥（メイン景色）
+                new THREE.MeshBasicMaterial({ visible: false }) // 手前（扉で見える側）
+            ];
+            portalRoom = new THREE.Mesh(roomGeo, roomMats);
+            portalRoom.position.z = -3; // 2.5m先に設置
+            portalRoom.visible = false;
+            scene.add(portalRoom);
+
+            // --- 立体的な電車（Box型） ---
+            const trainGeo = new THREE.BoxGeometry(0.5, 0.3, 0.3);
+            const trainMat = new THREE.MeshBasicMaterial({ color: 0xffeb3b });
+            train = new THREE.Mesh(trainGeo, trainMat);
+            train.position.set(2, -0.4, -2.2); // 扉の少し手前を走る
+            train.visible = false;
+            scene.add(train);
 
             // 青い扉
-            const doorGeo = new THREE.PlaneGeometry(0.62, 1.6);
-            const doorMat = new THREE.MeshBasicMaterial({ color: 0x0078ff, side: THREE.DoubleSide, transparent: true });
-            leftDoor = new THREE.Mesh(doorGeo, doorMat);
-            rightDoor = new THREE.Mesh(doorGeo, doorMat);
-            leftDoor.position.set(-0.31, 0, -2.49);
-            rightDoor.position.set(0.31, 0, -2.49);
-            leftDoor.visible = false;
-            rightDoor.visible = false;
+            const doorMat = new THREE.MeshBasicMaterial({ color: 0x0078ff, transparent: true });
+            leftDoor = new THREE.Mesh(new THREE.PlaneGeometry(1, 2), doorMat);
+            rightDoor = new THREE.Mesh(new THREE.PlaneGeometry(1, 2), doorMat);
+            leftDoor.position.set(-0.5, 0, -2.0);
+            rightDoor.position.set(0.5, 0, -2.0);
+            leftDoor.visible = false; rightDoor.visible = false;
             scene.add(leftDoor, rightDoor);
 
-            // 扉を表示して開く一連の動き
-            const placeAndOpen = () => {
+            window.addEventListener('click', () => {
                 if (!isPlaced) {
                     isPlaced = true;
                     document.getElementById('instructions').style.display = 'none';
-                    photoPlane.visible = true;
-                    leftDoor.visible = true;
-                    rightDoor.visible = true;
-
-                    // 0.8秒待ってからゆっくり開き始める
-                    setTimeout(() => {
-                        doorOpened = true;
+                    portalRoom.visible = true; leftDoor.visible = true; rightDoor.visible = true;
+                    setTimeout(() => { 
+                        doorOpened = true; 
                         document.getElementById('welcome-overlay').style.display = "block";
-                        
-                        // 扉が開き始めてから2.5秒後に日本語メッセージを出す
-                        setTimeout(() => {
-                            document.getElementById('ja-text').style.opacity = 1;
-                            document.getElementById('ui-container').style.display = "block";
-                        }, 2500);
-                    }, 800);
+                        document.getElementById('ui-container').style.display = "block";
+                    }, 500);
                 }
-            };
+            });
 
-            window.addEventListener('touchstart', placeAndOpen);
-            window.addEventListener('click', placeAndOpen);
-
-            // 次の画像へ
-            document.getElementById('next-btn').addEventListener('click', (e) => {
+            document.getElementById('train-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
-                currentIdx = (currentIdx + 1) % tourData.length;
-                photoMat.map = loader.load(tourData[currentIdx]);
-                document.getElementById('welcome-overlay').style.display = "none";
+                if (isTrainRunning) return;
+                isTrainRunning = true; train.visible = true; train.position.x = 2;
+                // 通過中に背景を変える
+                setTimeout(() => {
+                    portalRoom.material[4].map = loader.load('./night_1.jpg');
+                }, 1000);
+                setTimeout(() => { isTrainRunning = false; train.visible = false; }, 2000);
             });
 
             animate();
@@ -164,17 +101,13 @@
 
         function animate() {
             requestAnimationFrame(animate);
-            // 扉をゆっくり動かす（0.003は重厚感のあるスピード）
-            if (doorOpened && leftDoor.position.x > -0.95) {
-                leftDoor.position.x -= 0.003; 
-                rightDoor.position.x += 0.003; 
-                
-                leftDoor.material.opacity -= 0.005; 
-                rightDoor.material.opacity -= 0.005;
+            if (doorOpened && leftDoor.position.x > -1.5) {
+                leftDoor.position.x -= 0.005; rightDoor.position.x += 0.005;
+                leftDoor.material.opacity -= 0.008; rightDoor.material.opacity -= 0.008;
             }
+            if (isTrainRunning) { train.position.x -= 0.04; train.rotation.y += 0.01; }
             renderer.render(scene, camera);
         }
-
         window.onload = init;
     </script>
 </body>
