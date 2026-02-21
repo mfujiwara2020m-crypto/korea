@@ -1,25 +1,130 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>韓国AR旅行</title>
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-  </head>
-  <body style="margin: 0; overflow: hidden;">
-    <a-scene embedded arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;">
-      
-      <a-assets>
-        <img id="korea-360" src="assets/korea_spot.jpg">
-      </a-assets>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Busan Door AR</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Gowun Dodum', sans-serif; }
+        
+        /* メッセージ表示エリア */
+        #welcome-overlay {
+            position: absolute; top: 20%; width: 100%; text-align: center;
+            z-index: 20; pointer-events: none; display: none;
+        }
+        .msg-ko { color: #fff; font-size: 24px; text-shadow: 2px 2px 10px rgba(0,0,0,0.8); margin-bottom: 10px; }
+        .msg-ja { color: #ffeb3b; font-size: 18px; text-shadow: 2px 2px 10px rgba(0,0,0,0.8); opacity: 0; transition: opacity 1s; }
 
-      <a-marker preset="hiro">
-        <a-sphere src="#korea-360" radius="1" position="0 1 0" rotation="0 -90 0"></a-sphere>
-        <a-text value="Step into Korea!" position="0 2.5 0" align="center" color="#FFF"></a-text>
-      </a-marker>
+        /* UIエリア */
+        #ui-container {
+            position: absolute; bottom: 30px; width: 100%; text-align: center;
+            z-index: 10; display: none;
+        }
+        #description {
+            background: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 15px;
+            width: 80%; margin: 0 auto 15px; font-size: 14px; color: #333;
+        }
+        #next-btn {
+            padding: 15px 40px; border-radius: 50px; border: none;
+            background: #000; color: white; font-weight: bold; font-size: 18px;
+            cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div id="welcome-overlay">
+        <div class="msg-ko">어서오세요! 한국에 오신 것을 환영합니다!</div>
+        <div id="ja-text" class="msg-ja">韓国へようこそ！</div>
+    </div>
 
-      <a-entity camera></a-entity>
-    </a-scene>
-  </body>
+    <div id="ui-container">
+        <div id="description">Ready to travel Busan? Tap the button!</div>
+        <button id="next-btn">Explore Busan ✨</button>
+    </div>
+
+    <div id="container"></div>
+
+    <script type="module">
+        const mindarThree = new window.MINDAR.IMAGE.MindARThree({
+            container: document.querySelector("#container"),
+            imageTargetSrc: './targets.mind',
+        });
+        const {renderer, scene, camera} = mindarThree;
+
+        // データ設定
+        const tourData = [
+            { img: './day_1.jpg', title: "감천문화마을 (甘川洞文化村)", desc: "Let's start the tour from the colorful village!" },
+            { img: './day_2.jpg', title: "어린 왕자 (星の王子さま)", desc: "The famous prince is waiting for you." },
+            // ... (ここに残り7枚のデータを追加してください)
+        ];
+        let currentIdx = 0;
+        const loader = new THREE.TextureLoader();
+
+        // 1. 背景の写真パネル
+        const photoGeo = new THREE.PlaneGeometry(1, 1.4);
+        const photoMat = new THREE.MeshBasicMaterial({map: loader.load(tourData[0].img)});
+        const photoPlane = new THREE.Mesh(photoGeo, photoMat);
+        
+        // 2. 青い扉（左・右）
+        const doorGeo = new THREE.PlaneGeometry(0.5, 1.4);
+        const doorMat = new THREE.MeshBasicMaterial({color: 0x0078ff, side: THREE.DoubleSide});
+        const leftDoor = new THREE.Mesh(doorGeo, doorMat);
+        const rightDoor = new THREE.Mesh(doorGeo, doorMat);
+        leftDoor.position.set(-0.25, 0, 0.01); // 写真の少し手前
+        rightDoor.position.set(0.25, 0, 0.01);
+
+        const anchor = mindarThree.addAnchor(0);
+        anchor.group.add(photoPlane);
+        anchor.group.add(leftDoor);
+        anchor.group.add(rightDoor);
+
+        let doorOpened = false;
+
+        // マーカー認識時のアニメーション
+        anchor.onTargetFound = () => {
+            if (!doorOpened) {
+                // 1秒後にドアを開ける
+                setTimeout(() => {
+                    document.getElementById('welcome-overlay').style.display = "block";
+                    // アニメーションループ内で扉を動かすフラグ
+                    doorOpened = true;
+                    
+                    // 2秒後に日本語を表示
+                    setTimeout(() => {
+                        document.getElementById('ja-text').style.opacity = 1;
+                        document.getElementById('ui-container').style.display = "block";
+                    }, 2000);
+                }, 1000);
+            }
+        };
+
+        // 次へボタンの処理
+        document.getElementById('next-btn').addEventListener('click', () => {
+            currentIdx = (currentIdx + 1) % tourData.length;
+            photoMat.map = loader.load(tourData[currentIdx].img);
+            document.getElementById('description').innerText = tourData[currentIdx].desc;
+            document.getElementById('welcome-overlay').style.display = "none"; // 2枚目以降は挨拶を消す
+        });
+
+        const start = async() => {
+            await mindarThree.start();
+            renderer.setAnimationLoop(() => {
+                // 扉が開くアニメーション
+                if (doorOpened && leftDoor.position.x > -0.75) {
+                    leftDoor.position.x -= 0.01;
+                    rightDoor.position.x += 0.01;
+                    // 透明度を下げていく
+                    leftDoor.material.opacity -= 0.02;
+                    rightDoor.material.opacity -= 0.02;
+                    leftDoor.material.transparent = true;
+                    rightDoor.material.transparent = true;
+                }
+                renderer.render(scene, camera);
+            });
+        }
+        start();
+    </script>
+</body>
 </html>
