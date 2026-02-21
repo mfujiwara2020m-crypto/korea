@@ -2,43 +2,72 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Busan Tap AR - Fixed</title>
+    <title>Busan Immersive AR</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap" rel="stylesheet">
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Gowun Dodum', sans-serif; background: #000; touch-action: none; }
+        
+        /* 操作ガイド */
         #instructions {
             position: absolute; top: 50%; width: 100%; text-align: center;
             color: white; font-size: 20px; z-index: 100; font-weight: bold;
-            text-shadow: 2px 2px 5px rgba(0,0,0,0.8);
+            text-shadow: 2px 2px 5px rgba(0,0,0,0.8); pointer-events: none;
         }
+
+        /* メッセージエリア */
         #welcome-overlay {
             position: absolute; top: 15%; width: 100%; text-align: center;
             z-index: 20; pointer-events: none; display: none;
         }
-        .msg-ko { color: #fff; font-size: 24px; text-shadow: 0 0 10px rgba(0,0,0,1); font-weight: bold; }
-        .msg-ja { color: #ffeb3b; font-size: 18px; text-shadow: 0 0 10px rgba(0,0,0,1); opacity: 0; transition: opacity 1s; }
+
+        /* ハングル：紫で大きく */
+        .msg-ko { 
+            color: #bf55ec; 
+            font-size: 34px; 
+            font-weight: 800; 
+            text-shadow: 0 0 15px rgba(255,255,255,0.4), 2px 2px 5px rgba(0,0,0,0.8); 
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+            line-height: 1.2;
+        }
+
+        /* 日本語：白で小さく */
+        .msg-ja { 
+            color: #ffffff; 
+            font-size: 16px; 
+            font-weight: 400;
+            text-shadow: 1px 1px 5px rgba(0,0,0,0.8); 
+            opacity: 0; 
+            transition: opacity 1.5s;
+            letter-spacing: 1px;
+        }
+
+        /* UIエリア */
         #ui-container {
             position: absolute; bottom: 40px; width: 100%; text-align: center;
             z-index: 30; display: none;
         }
         #next-btn {
             padding: 15px 40px; border-radius: 50px; border: none;
-            background: #0078ff; color: white; font-weight: bold; font-size: 18px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            background: rgba(255, 255, 255, 0.2); 
+            color: white; font-weight: bold; font-size: 16px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.3);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
     </style>
 </head>
 <body>
-    <div id="instructions">画面をポンッと<br>タップしてください</div>
+    <div id="instructions">画面をタップして<br>釜山への扉を開く</div>
 
     <div id="welcome-overlay">
-        <div class="msg-ko">어서오세요!<br>한국에 오신 것을 환영합니다!</div>
-        <div id="ja-text" class="msg-ja">韓国へようこそ！</div>
+        <div class="msg-ko">어서오세요!<br>부산에 오신 것을<br>환영합니다!</div>
+        <div id="ja-text" class="msg-ja">― 釜山へようこそ ―</div>
     </div>
 
     <div id="ui-container">
-        <button id="next-btn">次のスポットへ ✨</button>
+        <button id="next-btn">Explore Next Spot ✨</button>
     </div>
 
     <script type="module">
@@ -46,7 +75,12 @@
         let doorOpened = false;
         let isPlaced = false;
 
-        const tourData = ['./day_1.jpg', './day_2.jpg', './day_3.jpg', './night_1.jpg', './night_2.jpg', './night_3.jpg', './morning_1.jpg', './morning_2.jpg', './morning_3.jpg'];
+        // 画像リスト（ファイル名が正しいか確認してください）
+        const tourData = [
+            './day_1.jpg', './day_2.jpg', './day_3.jpg', 
+            './night_1.jpg', './night_2.jpg', './night_3.jpg', 
+            './morning_1.jpg', './morning_2.jpg', './morning_3.jpg'
+        ];
         let currentIdx = 0;
         const loader = new THREE.TextureLoader();
 
@@ -58,7 +92,7 @@
             renderer.setPixelRatio(window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
 
-            // カメラ背景の設定
+            // カメラ背景
             const video = document.createElement('video');
             video.setAttribute('autoplay', '');
             video.setAttribute('muted', '');
@@ -70,12 +104,9 @@
                     video.play();
                     const videoTex = new THREE.VideoTexture(video);
                     scene.background = videoTex;
-                })
-                .catch(err => {
-                    document.getElementById('instructions').innerText = "カメラエラー: " + err;
                 });
 
-            // 写真
+            // 写真パネル
             const photoGeo = new THREE.PlaneGeometry(1.2, 1.6);
             photoMat = new THREE.MeshBasicMaterial({ map: loader.load(tourData[0]), transparent: true });
             const photoPlane = new THREE.Mesh(photoGeo, photoMat);
@@ -83,19 +114,19 @@
             photoPlane.visible = false;
             scene.add(photoPlane);
 
-            // 青い扉（左・右）
-            const doorGeo = new THREE.PlaneGeometry(0.61, 1.6); // 少しだけ幅を広くして隙間を埋める
+            // 青い扉
+            const doorGeo = new THREE.PlaneGeometry(0.62, 1.6);
             const doorMat = new THREE.MeshBasicMaterial({ color: 0x0078ff, side: THREE.DoubleSide, transparent: true });
             leftDoor = new THREE.Mesh(doorGeo, doorMat);
             rightDoor = new THREE.Mesh(doorGeo, doorMat);
-            leftDoor.position.set(-0.3, 0, -2.49);
-            rightDoor.position.set(0.3, 0, -2.49);
+            leftDoor.position.set(-0.31, 0, -2.49);
+            rightDoor.position.set(0.31, 0, -2.49);
             leftDoor.visible = false;
             rightDoor.visible = false;
             scene.add(leftDoor, rightDoor);
 
-            // 配置実行ファンクション
-            const placeDoor = () => {
+            // 扉を表示して開く一連の動き
+            const placeAndOpen = () => {
                 if (!isPlaced) {
                     isPlaced = true;
                     document.getElementById('instructions').style.display = 'none';
@@ -103,24 +134,26 @@
                     leftDoor.visible = true;
                     rightDoor.visible = true;
 
+                    // 0.8秒待ってからゆっくり開き始める
                     setTimeout(() => {
                         doorOpened = true;
                         document.getElementById('welcome-overlay').style.display = "block";
+                        
+                        // 扉が開き始めてから2.5秒後に日本語メッセージを出す
                         setTimeout(() => {
                             document.getElementById('ja-text').style.opacity = 1;
                             document.getElementById('ui-container').style.display = "block";
-                        }, 1000);
-                    }, 500);
+                        }, 2500);
+                    }, 800);
                 }
             };
 
-            // タップとクリックの両方に対応
-            window.addEventListener('touchstart', placeDoor);
-            window.addEventListener('click', placeDoor);
+            window.addEventListener('touchstart', placeAndOpen);
+            window.addEventListener('click', placeAndOpen);
 
-            // ボタン処理
+            // 次の画像へ
             document.getElementById('next-btn').addEventListener('click', (e) => {
-                e.stopPropagation(); // 背後のタップ判定を防ぐ
+                e.stopPropagation();
                 currentIdx = (currentIdx + 1) % tourData.length;
                 photoMat.map = loader.load(tourData[currentIdx]);
                 document.getElementById('welcome-overlay').style.display = "none";
@@ -131,10 +164,12 @@
 
         function animate() {
             requestAnimationFrame(animate);
-            if (doorOpened && leftDoor.position.x > -0.9) {
-                leftDoor.position.x -= 0.004;
-                rightDoor.position.x += 0.004;
-                leftDoor.material.opacity -= 0.005;
+            // 扉をゆっくり動かす（0.003は重厚感のあるスピード）
+            if (doorOpened && leftDoor.position.x > -0.95) {
+                leftDoor.position.x -= 0.003; 
+                rightDoor.position.x += 0.003; 
+                
+                leftDoor.material.opacity -= 0.005; 
                 rightDoor.material.opacity -= 0.005;
             }
             renderer.render(scene, camera);
@@ -144,4 +179,3 @@
     </script>
 </body>
 </html>
-
