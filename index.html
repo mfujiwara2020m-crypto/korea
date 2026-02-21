@@ -75,19 +75,25 @@
                 const rightDoor = new THREE.Mesh(doorGeo, doorMat(conf.color));
                 rightDoor.position.set(0.6, 0, 0.1);
 
-                // 【没入ポイント】円柱パネル
-                const photoGeo = new THREE.CylinderGeometry(5, 5, 8, 32, 1, true, Math.PI * 1.15, Math.PI * 0.7);
-                const photoMat = new THREE.MeshBasicMaterial({ 
-                    map: loader.load(conf.img), 
-                    side: THREE.BackSide, 
-                    transparent: true, 
-                    opacity: 0 
-                });
-                const photoCurve = new THREE.Mesh(photoGeo, photoMat);
-                photoCurve.position.set(0, 0, -4.5);
+               // 1. 円柱の作成（開始角度を調整して、最初から正面にくるようにする）
+// 第6引数を Math.PI * 1.15 にすると、だいたい正面にきます
+const photoGeo = new THREE.CylinderGeometry(5, 5, 8, 32, 1, true, Math.PI * 1.15, Math.PI * 0.7);
+const photoMat = new THREE.MeshBasicMaterial({ 
+    map: loader.load(conf.img), 
+    side: THREE.BackSide, 
+    transparent: true, 
+    opacity: 0 
+});
+const photoCurve = new THREE.Mesh(photoGeo, photoMat);
 
-                group.add(leftDoor, rightDoor, photoCurve);
-                scene.add(group);
+// 2. 位置を固定（ここから動かさない！）
+photoCurve.position.set(0, 0, -4.5); 
+
+// 3. 【重要】ここには rotation.y を書かない（または 0 にする）
+photoCurve.rotation.y = 0; 
+
+group.add(leftDoor, rightDoor, photoCurve);
+scene.add(group);
                 portalGroups.push({ group, leftDoor, rightDoor, photoCurve, targetZ: conf.z });
             });
 
@@ -148,3 +154,4 @@
     </script>
 </body>
 </html>
+
