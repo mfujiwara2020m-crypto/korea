@@ -1,18 +1,148 @@
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"></head>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Busan Tap AR</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Gowun Dodum', sans-serif; background: #000; }
+        #welcome-overlay {
+            position: absolute; top: 15%; width: 100%; text-align: center;
+            z-index: 20; pointer-events: none; display: none;
+        }
+        .msg-ko { color: #fff; font-size: 26px; text-shadow: 0 0 10px rgba(0,0,0,1); font-weight: bold; margin-bottom: 10px; }
+        .msg-ja { color: #ffeb3b; font-size: 18px; text-shadow: 0 0 10px rgba(0,0,0,1); opacity: 0; transition: opacity 1s; }
+        #ui-container {
+            position: absolute; bottom: 40px; width: 100%; text-align: center;
+            z-index: 30; display: none;
+        }
+        #description {
+            background: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 15px;
+            width: 80%; margin: 0 auto 15px; font-size: 14px; color: #333;
+        }
+        #next-btn {
+            padding: 15px 45px; border-radius: 50px; border: none;
+            background: #000; color: white; font-weight: bold; font-size: 18px;
+        }
+        #instructions {
+            position: absolute; top: 50%; width: 100%; text-align: center;
+            color: white; font-size: 18px; z-index: 10; pointer-events: none;
+        }
+    </style>
+</head>
 <body>
-    <h1 id="status">カメラ起動テスト中...</h1>
-    <video id="v" autoplay playsinline style="width:100%"></video>
-    <script>
-        navigator.mediaDevices.getUserMedia({video: true})
-        .then(s => {
-            document.getElementById('v').srcObject = s;
-            document.getElementById('status').innerText = "カメラ成功！次はARです。";
-        })
-        .catch(e => {
-            document.getElementById('status').innerText = "エラー: " + e;
-        });
+    <div id="instructions">画面をタップして扉を設置</div>
+
+    <div id="welcome-overlay">
+        <div class="msg-ko">어서오세요! <br>한국に 오신 것을 환영합니다!</div>
+        <div id="ja-text" class="msg-ja">韓国へようこそ！</div>
+    </div>
+
+    <div id="ui-container">
+        <div id="description">釜山ツアーへ出発！</div>
+        <button id="next-btn">Next Spot ✨</button>
+    </div>
+
+    <script type="module">
+        let scene, camera, renderer, photoMat, leftDoor, rightDoor;
+        let doorOpened = false;
+        let isPlaced = false;
+
+        const tourData = [
+            { img: './day_1.jpg', desc: "まずはカラフルな甘川洞文化村から！" },
+            { img: './day_2.jpg', desc: "星の王子さまに会いに行こう。" },
+            { img: './day_3.jpg', desc: "絶景カフェでひと休み。" },
+            { img: './night_1.jpg', desc: "夜の広安大橋はキラキラです。" },
+            { img: './night_2.jpg', desc: "The Bay 101の夜景は最高！" },
+            { img: './night_3.jpg', desc: "空飛ぶドローンショー！" },
+            { img: './morning_1.jpg', desc: "朝の海辺を散歩しましょう。" },
+            { img: './morning_2.jpg', desc: "可愛いカプセル列車に乗って。" },
+            { img: './morning_3.jpg', desc: "最後は熱々のテジクッパ！" }
+        ];
+        let currentIdx = 0;
+        const loader = new THREE.TextureLoader();
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // カメラ映像を背景に設定
+            const video = document.createElement('video');
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(stream => {
+                video.srcObject = stream;
+                video.play();
+                const videoTex = new THREE.VideoTexture(video);
+                scene.background = videoTex;
+            });
+
+            // 写真パネル
+            const photoGeo = new THREE.PlaneGeometry(1, 1.4);
+            photoMat = new THREE.MeshBasicMaterial({ map: loader.load(tourData[0].img), transparent: true });
+            const photoPlane = new THREE.Mesh(photoGeo, photoMat);
+            photoPlane.position.z = -2;
+            photoPlane.visible = false;
+            scene.add(photoPlane);
+
+            // 青い扉
+            const doorGeo = new THREE.PlaneGeometry(0.5, 1.4);
+            const doorMat = new THREE.MeshBasicMaterial({ color: 0x0078ff, side: THREE.DoubleSide, transparent: true });
+            leftDoor = new THREE.Mesh(doorGeo, doorMat);
+            rightDoor = new THREE.Mesh(doorGeo, doorMat);
+            leftDoor.position.set(-0.25, 0, -1.99);
+            rightDoor.position.set(0.25, 0, -1.99);
+            leftDoor.visible = false;
+            rightDoor.visible = false;
+            scene.add(leftDoor, rightDoor);
+
+            // タップイベント
+            window.addEventListener('click', () => {
+                if (!isPlaced) {
+                    isPlaced = true;
+                    document.getElementById('instructions').style.display = 'none';
+                    photoPlane.visible = true;
+                    leftDoor.visible = true;
+                    rightDoor.visible = true;
+
+                    // 0.5秒後に開く
+                    setTimeout(() => {
+                        doorOpened = true;
+                        document.getElementById('welcome-overlay').style.display = "block";
+                        setTimeout(() => {
+                            document.getElementById('ja-text').style.opacity = 1;
+                            document.getElementById('ui-container').style.display = "block";
+                        }, 1500);
+                    }, 500);
+                }
+            });
+
+            // ボタン処理
+            document.getElementById('next-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                currentIdx = (currentIdx + 1) % tourData.length;
+                photoMat.map = loader.load(tourData[currentIdx].img);
+                document.getElementById('description').innerText = tourData[currentIdx].desc;
+                document.getElementById('welcome-overlay').style.display = "none";
+            });
+
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (doorOpened && leftDoor.position.x > -0.75) {
+                leftDoor.position.x -= 0.01;
+                rightDoor.position.x += 0.01;
+                leftDoor.material.opacity -= 0.02;
+                rightDoor.material.opacity -= 0.02;
+            }
+            renderer.render(scene, camera);
+        }
+
+        init();
     </script>
 </body>
 </html>
