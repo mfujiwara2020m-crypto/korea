@@ -3,27 +3,41 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Busan AR Portal - Refined</title>
+<title>Busan AR Portal - 360 Full Immersive</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
 body { margin:0; overflow:hidden; background:#000; font-family:sans-serif; }
 #tap-overlay {position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);color:white;z-index:10;text-align:center;}
 #btn-start {padding:15px 40px;font-size:20px;background:#bf55ec;border:none;border-radius:50px;color:white;cursor:pointer;margin-top:20px;}
 #btn-reset {position:absolute;top:20px;right:20px;padding:10px 20px;background:rgba(255,255,255,0.2);border:1px solid white;color:white;border-radius:5px;z-index:15;display:none;cursor:pointer;}
-#title-neon {
+
+/* タイトルエリアのデザイン修正 */
+#title-container {
     position:absolute;top:15%;width:100%;text-align:center;
-    font-size:2rem;color:#bf55ec;text-shadow: 0 0 10px #bf55ec, 0 0 20px #bf55ec;
-    z-index:8;display:none;font-weight:bold;pointer-events:none;
+    z-index:8;display:none;pointer-events:none;
+}
+#main-title {
+    font-size:2.8rem;color:#bf55ec;font-weight:bold;
+    text-shadow: 0 0 10px #bf55ec, 0 0 20px #bf55ec;
+}
+#sub-title {
+    font-size:1.1rem;color:white;margin-top:5px;
+    letter-spacing: 2px;
 }
 </style>
 </head>
 <body>
 <div id="tap-overlay">
     <h2>プサン 没入体験</h2>
-    <p>長押しでゆっくり前進<br>左右に振ってドアを探してください</p>
+    <p>長押しでゆっくり前進<br>3枚のドアから行き先を選んでください</p>
     <button id="btn-start">開始</button>
 </div>
-<div id="title-neon">부산에 오신 것을歓迎します</div>
+
+<div id="title-container">
+    <div id="main-title">부산에 오신 것을</div>
+    <div id="sub-title">プサンへようこそ</div>
+</div>
+
 <button id="btn-reset">最初に戻る</button>
 
 <script>
@@ -48,11 +62,11 @@ function init() {
     });
 
     const loader = new THREE.TextureLoader();
-    // ドアの配置：最初に戻った時に視界に入りやすいよう調整
+    // ドアの配置：開始時にすぐ見つかるよう、5m先に扇形に配置
     const confs = [
-        {x:-4, z:-12, img:'./day_1.jpg', color:0x87CEEB}, // 左斜め前
-        {x: 4, z:-12, img:'./day_2.jpg', color:0x8B4513}, // 右斜め前
-        {x: 0, z:-20, img:'./night_1.jpg', color:0xbf55ec} // 正面奥
+        {x:-2.5, z:-5, img:'./day_1.jpg', color:0x87CEEB}, // 左前
+        {x: 0,   z:-5, img:'./day_2.jpg', color:0x8B4513}, // 正面
+        {x: 2.5, z:-5, img:'./night_1.jpg', color:0xbf55ec} // 右前
     ];
 
     confs.forEach(c=>{
@@ -65,16 +79,18 @@ function init() {
         L.position.set(-0.6, 0, 0.1);
         R.position.set(0.6, 0, 0.1);
 
+        // 【修正】360度没入用の球体（Sphere）
         const tex = loader.load(c.img);
-        tex.repeat.set(1,-1); tex.offset.set(0,1);
-        const panelGeo = new THREE.CylinderGeometry(5,5,8,32,1,true,Math.PI*0.65,Math.PI*0.7);
-        const panelMat = new THREE.MeshBasicMaterial({map:tex, side:THREE.BackSide, transparent:true, opacity:0});
-        const panel = new THREE.Mesh(panelGeo,panelMat);
-        panel.position.set(0,0,-4.5);
+        // パノラマ画像を球体の中に正しく貼るための設定
+        const sphereGeo = new THREE.SphereGeometry(15, 60, 40);
+        sphereGeo.scale(-1, 1, 1); // 内側に向ける
+        const sphereMat = new THREE.MeshBasicMaterial({map:tex, transparent:true, opacity:0});
+        const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+        sphere.position.set(0, 0, -10); // ドアの少し奥に配置
 
-        group.add(L,R,panel);
+        group.add(L,R,sphere);
         scene.add(group);
-        portals.push({group,L,R,panel,x:c.x,z:c.z});
+        portals.push({group,L,R,sphere,x:c.x,z:c.z});
     });
 
     document.addEventListener('touchstart', e=>{ if(e.target.tagName !== 'BUTTON') isTouch=true; });
@@ -82,24 +98,17 @@ function init() {
 
     window.addEventListener('deviceorientation', e=>{
         camera.rotation.set((e.beta-90)*Math.PI/180,0,e.alpha*Math.PI/180,'YXZ');
-        if(e.gamma) moveX = e.gamma * 0.12; 
+        if(e.gamma) moveX = e.gamma * 0.1; 
     });
 
     animate();
-    showTitleSequence();
-}
-
-function showTitleSequence() {
-    const titleEl = document.getElementById('title-neon');
-    titleEl.style.display = 'block';
-    setTimeout(() => { titleEl.innerText = "プサンへようこそ"; }, 3000);
+    document.getElementById('title-container').style.display = 'block';
 }
 
 function animate() {
     requestAnimationFrame(animate);
 
-    // 【修正】進むスピードを大幅にダウン（0.05 -> 0.02）
-    if(isTouch) targetZ += 0.02;
+    if(isTouch) targetZ += 0.02; // 低速移動
     moveZ += (targetZ - moveZ) * 0.1;
     
     camera.position.x += (moveX - camera.position.x) * 0.1;
@@ -110,19 +119,21 @@ function animate() {
         const dx = camera.position.x - p.x;
         const dist = Math.sqrt(dx*dx + dz*dz);
 
-        if(dist < 12){
+        if(dist < 10){
             p.group.visible = true;
             const openProgress = THREE.MathUtils.clamp((2.5-dist)/2.5, 0, 1);
 
+            // ドアをスライド
             p.L.position.x = THREE.MathUtils.lerp(p.L.position.x, openProgress > 0 ? -2.5 : -0.6, 0.02);
             p.R.position.x = THREE.MathUtils.lerp(p.R.position.x, openProgress > 0 ? 2.5 : 0.6, 0.02);
             
-            if(openProgress > 0.01) {
-                p.panel.material.opacity = 1;
+            // ドアをくぐり始めると、360度球体が出現
+            if(openProgress > 0.1) {
+                p.sphere.material.opacity = THREE.MathUtils.lerp(p.sphere.material.opacity, 1, 0.05);
             }
         } else {
             p.group.visible = false;
-            p.panel.material.opacity = 0;
+            p.sphere.material.opacity = 0;
         }
     });
 
@@ -136,7 +147,6 @@ document.getElementById('btn-start').onclick = ()=>{
 };
 
 document.getElementById('btn-reset').onclick = ()=>{
-    // 位置とターゲットを完全にリセット
     moveZ = targetZ = 0;
     moveX = camera.position.x = 0;
 };
