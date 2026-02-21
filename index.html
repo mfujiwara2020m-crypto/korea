@@ -132,10 +132,10 @@
         function animate() {
             requestAnimationFrame(animate);
             if (doorOpened && leftDoor.position.x > -0.9) {
-                leftDoor.position.x -= 0.015;
-                rightDoor.position.x += 0.015;
-                leftDoor.material.opacity -= 0.02;
-                rightDoor.material.opacity -= 0.02;
+                leftDoor.position.x -= 0.004;
+                rightDoor.position.x += 0.004;
+                leftDoor.material.opacity -= 0.005;
+                rightDoor.material.opacity -= 0.005;
             }
             renderer.render(scene, camera);
         }
@@ -144,3 +144,4 @@
     </script>
 </body>
 </html>
+
