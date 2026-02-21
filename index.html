@@ -116,4 +116,23 @@
                     // 透明度を少し下げて「向こう側」を見えやすく
                     if (p.leftDoor.material.opacity > 0.4) {
                         p.leftDoor.material.opacity -= 0.01;
-                        p.rightDoor.material.opacity -= 0
+                        p.rightDoor.material.opacity -= 0.01;
+                    }
+                }
+            });
+
+            document.getElementById('dist-ui').innerText = `移動距離: ${Math.floor(Math.abs(camera.position.z))}m`;
+            renderer.render(scene, camera);
+        }
+
+        document.getElementById('btn-start').onclick = function() {
+            this.parentElement.style.display = 'none';
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission().then(init);
+            } else {
+                init();
+            }
+        };
+    </script>
+</body>
+</html>
