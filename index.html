@@ -94,7 +94,7 @@
 
             // 【新ロジック】タッチ中だけ前進
             if (isTouching) {
-                moveForward += 0.05; // この数値を大きくすると速くなります
+                moveForward += 0.01; // この数値を大きくすると速くなります
             }
             camera.position.z = -moveForward;
 
@@ -114,14 +114,14 @@
 
                 if (distance < 2.5) {
                     // ドアが開く
-                    if (p.leftDoor.position.x > -2.2) p.leftDoor.position.x -= 0.02;
-                    if (p.rightDoor.position.x < 2.2) p.rightDoor.position.x += 0.02;
-                    if (p.photoPlane.material.opacity < 1) p.photoPlane.material.opacity += 0.05;
+                    if (p.leftDoor.position.x > -2.2) p.leftDoor.position.x -= 0.005;
+                    if (p.rightDoor.position.x < 2.2) p.rightDoor.position.x += 0.05;
+                    if (p.photoPlane.material.opacity < 1) p.photoPlane.material.opacity += 0.02;
                 } else {
                     // ドアが閉じる
-                    if (p.leftDoor.position.x < -0.6) p.leftDoor.position.x += 0.02;
-                    if (p.rightDoor.position.x > 0.6) p.rightDoor.position.x -= 0.02;
-                    if (p.photoPlane.material.opacity > 0) p.photoPlane.material.opacity -= 0.05;
+                    if (p.leftDoor.position.x < -0.6) p.leftDoor.position.x += 0.005;
+                    if (p.rightDoor.position.x > 0.6) p.rightDoor.position.x -= 0.005;
+                    if (p.photoPlane.material.opacity > 0) p.photoPlane.material.opacity -= 0.02;
                 }
             });
 
@@ -139,3 +139,4 @@
     </script>
 </body>
 </html>
+
