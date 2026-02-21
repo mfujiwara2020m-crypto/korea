@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Busan AR Portal - Final</title>
+    <title>Busan AR Portal - Fixed</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
@@ -15,7 +15,7 @@
 <body>
     <div id="tap-overlay">
         <h2>釜山 没入体験</h2>
-        <p>画面を長押しで前進<br>周りを見渡せます</p>
+        <p>長押しで前進 / 周りを見渡せます</p>
         <button id="btn-start">体験開始</button>
     </div>
     <div id="dist-ui">位置: 0.0m</div>
@@ -34,11 +34,9 @@
             renderer.setPixelRatio(window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
 
-            // 背景カメラ
             navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
                 .then(s => { const v = document.createElement('video'); v.srcObject = s; v.setAttribute('playsinline', ''); v.play(); scene.background = new THREE.VideoTexture(v); });
 
-            // 門の設定
             const confs = [
                 { z: -5,  img: './day_1.jpg', color: 0x87CEEB },
                 { z: -15, img: './day_2.jpg', color: 0x8B4513 },
@@ -49,15 +47,15 @@
                 const group = new THREE.Group();
                 group.position.set(0, 1.5, c.z);
 
-                // 扉
                 const dGeo = new THREE.PlaneGeometry(1.2, 3.5);
-                const dMat = new THREE.MeshBasicMaterial({ color: c.color, transparent: true, opacity: 0 });
+                const dMat = new THREE.MeshBasicMaterial({ color: c.color, transparent: true, opacity: 1 });
                 const L = new THREE.Mesh(dGeo, dMat); L.position.set(-0.6, 0, 0.1);
                 const R = new THREE.Mesh(dGeo, dMat.clone()); R.position.set(0.6, 0, 0.1);
 
-                // 写真パネル
+                // 【修正：上下反転の最終手段】
                 const tex = loader.load(c.img);
-                tex.flipY = false; // 上下反転の修正
+                tex.center.set(0.5, 0.5); // 回転の中心を真ん中に
+                tex.rotation = Math.PI;   // 180度回転（これで上下が確実に直ります）
 
                 const pGeo = new THREE.CylinderGeometry(5, 5, 8, 32, 1, true, Math.PI * 0.65, Math.PI * 0.7);
                 const pMat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, transparent: true, opacity: 0 });
@@ -69,7 +67,6 @@
                 portals.push({ group, L, R, panel, z: c.z });
             });
 
-            // 操作イベント
             document.addEventListener('touchstart', e => { if(e.target.id !== 'btn-start') isTouch = true; });
             document.addEventListener('touchend', () => isTouch = false);
             
@@ -91,25 +88,21 @@
             portals.forEach(p => {
                 const d = Math.abs(camera.position.z - p.z);
                 
-                // 門が見える範囲
                 if (d < 8.0) {
                     p.group.visible = true;
-                    // ドアは近づくまで不透明
-                    if (d > 2.5) p.L.material.opacity = p.R.material.opacity = 1;
-                    
-                    // 【修正】写真はドアが開く前から100%表示（隠れているだけ）
+                    // ドアが開く前から景色を表示しておく
                     p.panel.material.opacity = 1; 
                 }
 
                 if (d < 2.5) { 
-                    // ドアが開く
                     p.L.position.x = THREE.MathUtils.lerp(p.L.position.x, -2.5, 0.05);
                     p.R.position.x = THREE.MathUtils.lerp(p.R.position.x, 2.5, 0.05);
+                    // 門をくぐり抜ける時にドアを透明にして邪魔にならないようにする
+                    if (d < 0.5) p.L.material.opacity = p.R.material.opacity = 0;
                 } else {
-                    // ドアが閉じる
                     p.L.position.x = THREE.MathUtils.lerp(p.L.position.x, -0.6, 0.05);
                     p.R.position.x = THREE.MathUtils.lerp(p.R.position.x, 0.6, 0.05);
-                    // 通り過ぎたら写真を非表示にする
+                    p.L.material.opacity = p.R.material.opacity = 1;
                     if (d > 3.0) p.panel.material.opacity = 0;
                 }
             });
