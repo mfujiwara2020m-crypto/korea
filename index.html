@@ -3,174 +3,131 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Busan VR - Perfect Motion</title>
+    <title>Busan Flight Portal</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
-        #permission-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
-        .start-btn { padding: 15px 40px; background: #ff00de; color: white; border: none; border-radius: 30px; font-size: 1.2rem; cursor: pointer; box-shadow: 0 0 20px #ff00de; }
-        .msg-container { position: absolute; top: 30%; width: 100%; text-align: center; z-index: 100; pointer-events: none; }
-        .kr-line { display: block; opacity: 0; transition: opacity 1.5s, transform 1.5s; color: #ff00de; font-size: 2.5rem; font-weight: bold; filter: drop-shadow(0 0 10px #ff00de); transform: translateY(10px); }
-        #msg-jp { margin-top: 20px; opacity: 0; transition: opacity 1s; color: #ffffff; font-size: 1.1rem; }
+        body { margin: 0; overflow: hidden; background: #000; }
+        #instruction { 
+            position: absolute; bottom: 20px; width: 100%; text-align: center; 
+            color: white; font-family: sans-serif; z-index: 10;
+            text-shadow: 0 0 5px rgba(0,0,0,0.8);
+        }
     </style>
 </head>
 <body>
-
-    <div id="permission-overlay">
-        <p>釜山へのゲートを準備中...</p>
-        <button class="start-btn" onclick="requestPermission()">体験を開始する</button>
-    </div>
-
-    <div class="msg-container">
-        <span id="kr-1" class="kr-line">부산에</span>
-        <span id="kr-2" class="kr-line">오신 것을</span>
-        <span id="kr-3" class="kr-line">환영합니다</span>
-        <div id="msg-jp">釜山へようこそ</div>
-    </div>
+    <div id="instruction">画面をタップして釜山へ突入</div>
 
 <script>
-let scene, camera, renderer, doorL, doorR, glow, sphere, videoMesh, day1Mesh;
+let scene, camera, renderer, skyMesh, wingMesh, doorL, doorR, sphere;
 let isOpening = false, openStartTime = 0;
-const OPEN_DURATION = 3000;
 const loader = new THREE.TextureLoader();
-
-// iPhoneなどのセンサー許可リクエスト
-function requestPermission() {
-    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-        DeviceOrientationEvent.requestPermission()
-            .then(permissionState => {
-                if (permissionState === 'granted') {
-                    startApp();
-                }
-            })
-            .catch(console.error);
-    } else {
-        startApp(); // AndroidやPC
-    }
-}
-
-function startApp() {
-    document.getElementById('permission-overlay').style.display = 'none';
-    init();
-}
 
 function init() {
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-    camera.rotation.order = 'YXZ';
-
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    
+    renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    startCamera();
-
-    loader.load('./day_1.jpg', (tex) => {
-        day1Mesh = new THREE.Mesh(new THREE.PlaneGeometry(16, 12), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
-        day1Mesh.position.z = -8;
-        scene.add(day1Mesh);
+    // 1. 背景の空 (sora.jpg) - 少し奥に配置
+    loader.load('./sora.jpg', (tex) => {
+        tex.wrapS = THREE.RepeatWrapping; // 横にループさせる設定
+        const skyGeo = new THREE.PlaneGeometry(30, 20);
+        skyMesh = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ map: tex }));
+        skyMesh.position.z = -10;
+        scene.add(skyMesh);
     });
 
-    setTimeout(() => showEl('kr-1'), 500);
-    setTimeout(() => showEl('kr-2'), 1500);
-    setTimeout(() => showEl('kr-3'), 2500);
-    setTimeout(() => { document.getElementById('msg-jp').style.opacity = 1; }, 4000);
+    // 2. 飛行機の翼 (hikouki.jpg) - 手前に大きく配置
+    loader.load('./hikouki.jpg', (tex) => {
+        const wingGeo = new THREE.PlaneGeometry(12, 8);
+        wingMesh = new THREE.Mesh(wingGeo, new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+        // 左下に寄せて、カメラに近い位置に配置
+        wingMesh.position.set(-3, -2, -5); 
+        scene.add(wingMesh);
+    });
 
-    setTimeout(() => {
-        document.querySelector('.msg-container').style.display = 'none';
-        setupPortal();
-    }, 7000);
+    // 3. 扉の設置 (窓の外にあるイメージ)
+    setupPortal();
 
-    window.addEventListener('deviceorientation', handleOrientation, true);
-    window.addEventListener('touchstart', onAction);
-    window.addEventListener('mousedown', onAction);
+    // 4. 釜山の景色 (day_2.jpg) - 潜伏させておく
+    loader.load('./day_2.jpg', (tex) => {
+        sphere = new THREE.Mesh(
+            new THREE.SphereGeometry(80, 60, 40).scale(-1, 1, 1),
+            new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0 })
+        );
+        sphere.position.z = -50;
+        scene.add(sphere);
+    });
+
+    window.addEventListener('mousedown', startTransition);
+    window.addEventListener('touchstart', startTransition);
 
     animate();
 }
 
-function handleOrientation(e) {
-    if (!e.alpha) return;
-    // センサー値を補正してカメラ回転に適用
-    const beta = e.beta * Math.PI / 180;
-    const gamma = e.gamma * Math.PI / 180;
-    const alpha = e.alpha * Math.PI / 180;
-    camera.rotation.set(beta - Math.PI/2, alpha, 0);
-}
-
-function startCamera() {
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-    .then(stream => {
-        const video = document.createElement('video');
-        video.srcObject = stream; video.play();
-        videoMesh = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshBasicMaterial({ map: new THREE.VideoTexture(video), depthTest: false }));
-        videoMesh.position.z = -100;
-        camera.add(videoMesh);
-    });
-}
-
 function setupPortal() {
-    const doorY = 0.8;
-    doorL = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 4.0), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-    doorR = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 4.0), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-    doorL.position.set(-0.8, doorY, -5);
-    doorR.position.set(0.8, doorY, -5);
-
-    glow = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 4.5), new THREE.MeshBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending }));
-    glow.position.set(0, doorY, -5.01);
-    scene.add(doorL, doorR, glow);
-
-    loader.load('./day_2.jpg', (tex) => {
-        // 巨大な球体を作成（半径100）
-        sphere = new THREE.Mesh(
-            new THREE.SphereGeometry(100, 64, 32).scale(-1, 1, 1),
-            new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0 })
-        );
-        sphere.position.set(0, 0, -80); // 非常に遠くに配置
-        scene.add(sphere);
-    });
+    const doorGeo = new THREE.PlaneGeometry(1.5, 4);
+    const doorMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    doorL = new THREE.Mesh(doorGeo, doorMat);
+    doorR = new THREE.Mesh(doorGeo, doorMat);
+    doorL.position.set(-0.75, 0, -8);
+    doorR.position.set(0.75, 0, -8);
+    scene.add(doorL, doorR);
 }
 
-function onAction() {
-    if (doorL && !isOpening) {
+function startTransition() {
+    if (!isOpening) {
         isOpening = true;
         openStartTime = performance.now();
+        document.getElementById('instruction').style.display = 'none';
     }
 }
 
 function animate() {
     requestAnimationFrame(animate);
-    
+    const time = performance.now() * 0.001;
+
+    // 空をゆっくり動かして飛行感を出す
+    if (skyMesh && !isOpening) {
+        skyMesh.material.map.offset.x += 0.0005;
+        // 翼をわずかに揺らす (機体の振動)
+        wingMesh.position.y = -2 + Math.sin(time * 2) * 0.05;
+    }
+
     if (isOpening) {
         const elapsed = performance.now() - openStartTime;
-        const alpha = Math.min(elapsed / OPEN_DURATION, 1); 
-        
-        doorL.position.x = -0.8 - (alpha * 10.0); 
-        doorR.position.x = 0.8 + (alpha * 10.0);  
-        glow.material.opacity = 0.8 * (1 - alpha);
+        const alpha = Math.min(elapsed / 3000, 1);
 
-        if(sphere) {
+        // 扉が開く
+        doorL.position.x = -0.75 - (alpha * 5);
+        doorR.position.x = 0.75 + (alpha * 5);
+
+        // 飛行機の翼が画面外（左下）へ消えていく
+        if (wingMesh) {
+            wingMesh.position.x = -3 - (alpha * 10);
+            wingMesh.position.y = -2 - (alpha * 5);
+            wingMesh.material.opacity = 1 - alpha;
+        }
+
+        // カメラが前進（扉を突き抜ける）
+        camera.position.z = -(alpha * 20);
+
+        // 釜山の景色がフェードイン
+        if (sphere) {
             sphere.material.opacity = alpha;
-            // 景色を自分に向かって引き寄せ、最後は自分を包む位置へ
-            sphere.position.z = THREE.MathUtils.lerp(-80, 0, alpha);
+            sphere.position.z = THREE.MathUtils.lerp(-50, -10, alpha);
         }
-        
-        if(day1Mesh) day1Mesh.material.opacity = 1 - alpha;
-        if(videoMesh) videoMesh.material.opacity = (1 - alpha) * 0.5;
 
-        // カメラも扉を突き抜けて前進
-        camera.position.z = THREE.MathUtils.lerp(0, -10, alpha);
-
-        if (alpha === 1) {
-            scene.remove(doorL, doorR, glow);
-            if(day1Mesh) scene.remove(day1Mesh);
-            isOpening = false;
-        }
+        // 空を消す
+        if (skyMesh) skyMesh.material.opacity = 1 - alpha;
     }
+
     renderer.render(scene, camera);
 }
 
-function showEl(id) { const el = document.getElementById(id); if(el){ el.style.opacity = 1; el.style.transform = "translateY(0)"; } }
+window.onload = init;
 </script>
 </body>
 </html>
