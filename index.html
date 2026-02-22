@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Busan Perfect Immersive</title>
+    <title>Busan VR Experience</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
         .msg-container { position: absolute; top: 30%; width: 100%; text-align: center; z-index: 100; pointer-events: none; }
         .kr-line { 
-            display: block; opacity: 0; transition: opacity 1s, transform 1s; 
+            display: block; opacity: 0; transition: opacity 2s, transform 2s; 
             color: #ff00de; font-size: 2.5rem; font-weight: bold; 
             filter: drop-shadow(0 0 10px #ff00de); transform: translateY(10px); 
         }
@@ -33,7 +33,7 @@ const loader = new THREE.TextureLoader();
 function init() {
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.rotation.order = 'YXZ';
+    camera.rotation.order = 'YXZ'; // ジャイロ操作に最適な回転順序
 
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -42,30 +42,32 @@ function init() {
 
     startCamera();
 
-    // day_1 背景
+    // day_1 (初期背景)
     loader.load('./day_1.jpg', (tex) => {
         day1Mesh = new THREE.Mesh(new THREE.PlaneGeometry(16, 12), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
         day1Mesh.position.z = -8;
         scene.add(day1Mesh);
     });
 
-    // テキスト演出
+    // テキスト出現
     setTimeout(() => { showEl('kr-1'); }, 500);
-    setTimeout(() => { showEl('kr-2'); }, 1200);
-    setTimeout(() => { showEl('kr-3'); }, 1900);
-    setTimeout(() => { document.getElementById('msg-jp').style.opacity = 1; }, 3000);
+    setTimeout(() => { showEl('kr-2'); }, 1500);
+    setTimeout(() => { showEl('kr-3'); }, 2500);
+    setTimeout(() => { document.getElementById('msg-jp').style.opacity = 1; }, 4000);
 
-    // 扉セットアップ（6秒後）
+    // 扉セットアップ（7秒後）
     setTimeout(() => {
         document.querySelector('.msg-container').style.display = 'none';
         setupPortal();
-    }, 6000);
+    }, 7000);
 
-    // ジャイロセンサーの連動（スマホを動かすと景色も動く）
+    // スマホの傾きに景色を連動させる
     window.addEventListener('deviceorientation', (e) => {
         if (!e.alpha) return;
-        // 角度をラジアンに変換してカメラを回転
-        camera.rotation.set((e.beta - 90) * Math.PI / 180, e.alpha * Math.PI / 180, 0);
+        // センサー値をラジアンに変換してカメラを回転
+        const recBeta = (e.beta - 90) * Math.PI / 180;
+        const recAlpha = e.alpha * Math.PI / 180;
+        camera.rotation.set(recBeta, recAlpha, 0);
     }, true);
 
     window.addEventListener('touchstart', onAction);
@@ -81,32 +83,32 @@ function startCamera() {
         video.srcObject = stream; video.play();
         videoMesh = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshBasicMaterial({ map: new THREE.VideoTexture(video), depthTest: false }));
         videoMesh.position.z = -50;
-        camera.add(videoMesh); // カメラに固定して追従させる
+        camera.add(videoMesh); // カメラに固定することで現実世界を背景に保つ
     });
 }
 
 function setupPortal() {
     const doorY = 0.8;
-    const doorGeo = new THREE.PlaneGeometry(1.5, 4.0);
+    const doorGeo = new THREE.PlaneGeometry(1.6, 4.0);
     const doorMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     
     doorL = new THREE.Mesh(doorGeo, doorMat);
     doorR = new THREE.Mesh(doorGeo, doorMat);
-    doorL.position.set(-0.75, doorY, -5);
-    doorR.position.set(0.75, doorY, -5);
+    doorL.position.set(-0.8, doorY, -5);
+    doorR.position.set(0.8, doorY, -5);
 
-    glow = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 4.3), new THREE.MeshBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending }));
+    glow = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 4.5), new THREE.MeshBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending }));
     glow.position.set(0, doorY, -5.01);
     scene.add(doorL, doorR, glow);
 
-    // 景色の球体化（自分を包み込む形に）
+    // 景色の球体化 (自分を包み込む巨大ドーム)
     loader.load('./day_2.jpg', (tex) => {
         sphere = new THREE.Mesh(
             new THREE.SphereGeometry(80, 60, 40).scale(-1, 1, 1),
             new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0 })
         );
-        // 最初はかなり「奥」に配置
-        sphere.position.set(0, 0, -40); 
+        // 最初は遥か遠く(-60)に配置して奥行きを出す
+        sphere.position.set(0, 0, -60); 
         scene.add(sphere);
     });
 }
@@ -126,22 +128,22 @@ function animate() {
         const elapsed = performance.now() - openStartTime;
         const alpha = Math.min(elapsed / OPEN_DURATION, 1); 
         
-        // 扉の水平スライド
-        doorL.position.x = -0.75 - (alpha * 6.0); 
-        doorR.position.x = 0.75 + (alpha * 6.0);  
-        glow.material.opacity = 0.7 * (1 - alpha);
+        // 扉がダイナミックに左右へスライド
+        doorL.position.x = -0.8 - (alpha * 7.0); 
+        doorR.position.x = 0.8 + (alpha * 7.0);  
+        glow.material.opacity = 0.8 * (1 - alpha);
 
         if(sphere) {
             sphere.material.opacity = alpha;
-            // 球体を自分に引き寄せ、最終的に自分を包み込む位置(z: -5)へ
-            sphere.position.z = THREE.MathUtils.lerp(-40, -5, alpha);
+            // 遠くから自分を包み込む位置まで景色が迫ってくる
+            sphere.position.z = THREE.MathUtils.lerp(-60, -5, alpha);
         }
         
         if(day1Mesh) day1Mesh.material.opacity = 1 - alpha;
         if(videoMesh) videoMesh.material.opacity = (1 - alpha) * 0.5;
 
-        // カメラが奥へ踏み込む
-        camera.position.z = THREE.MathUtils.lerp(0, -15, alpha);
+        // 【没入感の要】カメラが扉を突き抜けて奥へ進む
+        camera.position.z = THREE.MathUtils.lerp(0, -20, alpha);
 
         if (alpha === 1) {
             scene.remove(doorL, doorR, glow);
