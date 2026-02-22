@@ -3,27 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Busan Portal Fixed</title>
+    <title>Busan Neon Portal V2</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
-        #msg-kr, #msg-jp {
-            position: absolute; width: 100%; text-align: center; z-index: 100;
-            opacity: 0; transition: opacity 1s; pointer-events: none;
+        
+        /* 韓国語メッセージ（3行） */
+        .msg-container {
+            position: absolute; top: 35%; width: 100%; text-align: center;
+            z-index: 100; pointer-events: none;
         }
-        #msg-kr { top: 40%; color: #bf55ec; font-size: 2rem; font-weight: bold; text-shadow: 0 0 15px #bf55ec; }
-        #msg-jp { top: 52%; color: #ffffff; font-size: 1rem; }
+        .kr-line {
+            display: block; opacity: 0; transition: opacity 1s, transform 1s;
+            color: #bf55ec; font-size: 2.5rem; font-weight: bold;
+            text-shadow: 0 0 10px #bf55ec, 0 0 20px #bf55ec, 0 0 40px #ff00ff;
+            line-height: 1.2; transform: translateY(10px);
+        }
+        
+        /* 日本語メッセージ */
+        #msg-jp {
+            margin-top: 20px; opacity: 0; transition: opacity 1s;
+            color: #ffffff; font-size: 1rem; letter-spacing: 2px;
+            text-shadow: 0 0 5px #ffffff;
+        }
+
         #btn-reset {
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            padding: 12px 30px; background: rgba(0,0,0,0.7); border: 2px solid #00ffff;
-            color: #00ffff; border-radius: 30px; z-index: 150; display: none;
+            padding: 12px 30px; background: rgba(0,0,0,0.8); border: 2px solid #bf55ec;
+            color: #bf55ec; border-radius: 30px; z-index: 150; display: none;
+            text-shadow: 0 0 5px #bf55ec; box-shadow: 0 0 10px #bf55ec;
         }
     </style>
 </head>
 <body>
 
-    <div id="msg-kr">부산에 오신 것을 환영합니다</div>
-    <div id="msg-jp">釜山へようこそ</div>
+    <div class="msg-container">
+        <span id="kr-1" class="kr-line">부산</span>
+        <span id="kr-2" class="kr-line">에</span>
+        <span id="kr-3" class="kr-line">환영합니다</span>
+        <div id="msg-jp">釜山へようこそ</div>
+    </div>
+
     <button id="btn-reset" onclick="location.reload()">最初に戻る</button>
 
 <script>
@@ -42,98 +62,98 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // カメラ映像背景
+    // カメラ背景
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
     .then(stream => {
         const video = document.createElement('video');
         video.srcObject = stream; video.setAttribute('playsinline', ''); video.play();
         const videoTex = new THREE.VideoTexture(video);
-        videoMesh = new THREE.Mesh(
-            new THREE.PlaneGeometry(100, 100),
-            new THREE.MeshBasicMaterial({ map: videoTex, depthTest: false })
-        );
+        videoMesh = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshBasicMaterial({ map: videoTex, depthTest: false }));
         videoMesh.position.z = -50;
         camera.add(videoMesh); 
         scene.add(camera);
     });
 
-    // フェーズ1: day_1.jpg
-    const bgPlane = new THREE.Mesh(
-        new THREE.PlaneGeometry(10, 7.5),
-        new THREE.MeshBasicMaterial({ map: loader.load('./day_1.jpg'), transparent: true })
-    );
-    bgPlane.position.z = -5;
-    scene.add(bgPlane);
+    // フェーズ1: day_1背景
+    const day1 = new THREE.Mesh(new THREE.PlaneGeometry(12, 9), new THREE.MeshBasicMaterial({ map: loader.load('./day_1.jpg'), transparent: true }));
+    day1.position.z = -6;
+    scene.add(day1);
 
-    // テキスト演出
-    setTimeout(() => { showMsg('msg-kr'); }, 500);
-    setTimeout(() => { showMsg('msg-jp'); }, 3000);
+    // メッセージ演出（順次表示）
+    setTimeout(() => showEl('kr-1'), 500);
+    setTimeout(() => showEl('kr-2'), 1200);
+    setTimeout(() => showEl('kr-3'), 1900);
+    setTimeout(() => { document.getElementById('msg-jp').style.opacity = 1; }, 3500);
 
-    // 5秒後にドア出現
+    // 6秒後にドアへ
     setTimeout(() => {
-        scene.remove(bgPlane);
-        hideMsg('msg-kr'); hideMsg('msg-jp');
-        createDoor();
+        scene.remove(day1);
+        document.querySelector('.msg-container').style.display = 'none';
+        createNeonDoor();
         document.getElementById('btn-reset').style.display = 'block';
-    }, 5000);
+    }, 6500);
 
-    // ジャイロ
     window.addEventListener('deviceorientation', (e) => {
         if (!e.alpha) return;
         camera.rotation.set((e.beta - 90) * Math.PI / 180, e.alpha * Math.PI / 180, 0);
     });
 
-    // タップ・クリック両対応
-    window.addEventListener('touchstart', onTouch, false);
-    window.addEventListener('mousedown', onTouch, false);
+    window.addEventListener('touchstart', onAction, false);
+    window.addEventListener('mousedown', onAction, false);
 
     animate();
 }
 
-function showMsg(id) { const el = document.getElementById(id); el.style.display = 'block'; setTimeout(() => el.style.opacity = 1, 100); }
-function hideMsg(id) { const el = document.getElementById(id); el.style.opacity = 0; }
+function showEl(id) { 
+    const el = document.getElementById(id); 
+    el.style.opacity = 1; 
+    el.style.transform = "translateY(0)"; 
+}
 
-function createDoor() {
+function createNeonDoor() {
     doorGroup = new THREE.Group();
     doorGroup.position.set(0, 1.5, -5);
 
-    const doorL = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 3), new THREE.MeshBasicMaterial({ color: 0xffffff, side: 2 }));
-    const doorR = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 3), new THREE.MeshBasicMaterial({ color: 0xffffff, side: 2 }));
-    doorL.position.x = -0.6; doorR.position.x = 0.6;
+    // ドア本体（白）
+    const doorGeo = new THREE.PlaneGeometry(1.1, 3);
+    const doorMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: 2 });
+    const doorL = new THREE.Mesh(doorGeo, doorMat);
+    const doorR = new THREE.Mesh(doorGeo, doorMat);
+    doorL.position.x = -0.56; doorR.position.x = 0.56;
 
-    // ネオン枠（当たり判定を大きくするためドアより少し大きく）
-    const frame = new THREE.Mesh(
-        new THREE.PlaneGeometry(2.5, 3.2),
-        new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.5 })
-    );
-    frame.position.z = 0.01;
+    // ネオン管エフェクト（ドアを囲む光る枠）
+    const neonMat = new THREE.MeshBasicMaterial({ color: 0xbf55ec, transparent: true, opacity: 0.8 });
+    const neonFrame = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 3.3), neonMat);
+    neonFrame.position.z = -0.05; // ドアの少し後ろで光を漏らす
 
-    doorGroup.add(doorL, doorR, frame);
+    // 細い光の線
+    const lineGeo = new THREE.BoxGeometry(0.05, 3.1, 0.05);
+    const lineL = new THREE.Mesh(lineGeo, new THREE.MeshBasicMaterial({color: 0x00ffff}));
+    const lineR = new THREE.Mesh(lineGeo, new THREE.MeshBasicMaterial({color: 0x00ffff}));
+    lineL.position.set(-1.15, 0, 0.02);
+    lineR.position.set(1.15, 0, 0.02);
+
+    doorGroup.add(doorL, doorR, neonFrame, lineL, lineR);
     doorGroup.userData = { left: doorL, right: doorR, isOpen: false };
     scene.add(doorGroup);
 
-    // day_2.jpg 準備
+    // day_2画像（球体）
     sphere = new THREE.Mesh(
-        new THREE.SphereGeometry(20, 60, 40).scale(-1, 1, 1),
+        new THREE.SphereGeometry(25, 60, 40).scale(-1, 1, 1),
         new THREE.MeshBasicMaterial({ map: loader.load('./day_2.jpg'), transparent: true, opacity: 0 })
     );
     sphere.position.set(0, 1.5, -5);
     scene.add(sphere);
 }
 
-function onTouch(event) {
+function onAction(event) {
     if (!doorGroup || doorGroup.userData.isOpen) return;
-
-    // タップ座標の取得
     const x = event.touches ? event.touches[0].clientX : event.clientX;
     const y = event.touches ? event.touches[0].clientY : event.clientY;
     mouse.x = (x / window.innerWidth) * 2 - 1;
     mouse.y = -(y / window.innerHeight) * 2 + 1;
-
     raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(doorGroup.children);
-
-    if (intersects.length > 0) {
+    if (raycaster.intersectObjects(doorGroup.children).length > 0) {
         doorGroup.userData.isOpen = true;
         isImmersed = true;
         if(videoMesh) videoMesh.visible = false;
@@ -142,23 +162,18 @@ function onTouch(event) {
 
 function animate() {
     requestAnimationFrame(animate);
-
     if (doorGroup && doorGroup.userData.isOpen) {
-        doorGroup.userData.left.position.x = THREE.MathUtils.lerp(doorGroup.userData.left.position.x, -3, 0.05);
-        doorGroup.userData.right.position.x = THREE.MathUtils.lerp(doorGroup.userData.right.position.x, 3, 0.05);
-        sphere.material.opacity = THREE.MathUtils.lerp(sphere.material.opacity, 1, 0.05);
+        doorGroup.userData.left.position.x = THREE.MathUtils.lerp(doorGroup.userData.left.position.x, -3, 0.04);
+        doorGroup.userData.right.position.x = THREE.MathUtils.lerp(doorGroup.userData.right.position.x, 3, 0.04);
+        sphere.material.opacity = THREE.MathUtils.lerp(sphere.material.opacity, 1, 0.03);
     }
-
     if (isImmersed) {
-        // 球体の中心(0, 1.5, -5)にカメラを完全固定
         camera.position.set(0, 1.5, -5);
     } else {
         camera.position.set(0, 1.6, 0);
     }
-
     renderer.render(scene, camera);
 }
-
 window.onload = init;
 </script>
 </body>
