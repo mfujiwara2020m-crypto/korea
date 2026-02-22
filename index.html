@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Busan Portal Recovery</title>
+    <title>Busan Heavy Portal</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
-        canvas { display: block; }
         .msg-container { position: absolute; top: 30%; width: 100%; text-align: center; z-index: 100; pointer-events: none; }
         .kr-line { display: block; opacity: 0; transition: opacity 1s, transform 1s; color: #ff00de; font-size: 2.2rem; font-weight: bold; text-shadow: 0 0 15px #ff00de; transform: translateY(10px); }
         #msg-jp { margin-top: 20px; opacity: 0; transition: opacity 1s; color: #ffffff; font-size: 1rem; }
@@ -38,43 +37,28 @@ async function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // 1. カメラ映像の取得（これを先に確実に動かす）
+    // カメラ映像
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
         const video = document.createElement('video');
-        video.srcObject = stream;
-        video.setAttribute('playsinline', '');
-        video.play();
+        video.srcObject = stream; video.setAttribute('playsinline', ''); video.play();
         const videoTex = new THREE.VideoTexture(video);
-        videoMesh = new THREE.Mesh(
-            new THREE.PlaneGeometry(100, 100),
-            new THREE.MeshBasicMaterial({ map: videoTex, depthTest: false })
-        );
+        videoMesh = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshBasicMaterial({ map: videoTex, depthTest: false }));
         videoMesh.position.z = -50;
         camera.add(videoMesh);
         scene.add(camera);
-    } catch (e) {
-        console.error("Camera error:", e);
-        alert("カメラの許可が必要です");
-    }
+    } catch (e) { console.error(e); }
 
-    // 2. day_1背景（エラーでも真っ暗にならないよう空のテクスチャを考慮）
-    const day1Geo = new THREE.PlaneGeometry(12, 9);
-    const day1Mat = new THREE.MeshBasicMaterial({ 
-        map: loader.load('./day_1.jpg', undefined, undefined, (err) => console.log('day_1 load error')),
-        transparent: true 
-    });
-    const day1 = new THREE.Mesh(day1Geo, day1Mat);
+    // day_1背景
+    const day1 = new THREE.Mesh(new THREE.PlaneGeometry(12, 9), new THREE.MeshBasicMaterial({ map: loader.load('./day_1.jpg'), transparent: true }));
     day1.position.z = -6;
     scene.add(day1);
 
-    // メッセージ表示
     setTimeout(() => showEl('kr-1'), 500);
     setTimeout(() => showEl('kr-2'), 1200);
     setTimeout(() => showEl('kr-3'), 1900);
     setTimeout(() => { document.getElementById('msg-jp').style.opacity = 1; }, 3500);
 
-    // ドア出現への移行
     setTimeout(() => {
         scene.remove(day1);
         document.querySelector('.msg-container').style.display = 'none';
@@ -82,41 +66,39 @@ async function init() {
         document.getElementById('btn-reset').style.display = 'block';
     }, 6500);
 
-    // スマホの回転制御
     window.addEventListener('deviceorientation', (e) => {
         if (!e.alpha) return;
         camera.rotation.set((e.beta - 90) * Math.PI / 180, e.alpha * Math.PI / 180, 0);
     }, true);
 
-    window.addEventListener('touchstart', onAction);
-    window.addEventListener('mousedown', onAction);
+    window.addEventListener('touchstart', () => { if(doorGroup) doorGroup.userData.isOpen = true; isImmersed = true; });
+    window.addEventListener('mousedown', () => { if(doorGroup) doorGroup.userData.isOpen = true; isImmersed = true; });
 
     animate();
 }
 
-function showEl(id) { 
-    const el = document.getElementById(id); 
-    if(el) { el.style.opacity = 1; el.style.transform = "translateY(0)"; }
-}
+function showEl(id) { const el = document.getElementById(id); if(el){ el.style.opacity = 1; el.style.transform = "translateY(0)"; } }
 
 function createNeonDoor() {
     doorGroup = new THREE.Group();
     doorGroup.position.set(0, 1.5, -5);
 
-    // 扉の質感（案A: ネオン風）
-    const doorL = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 3.2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, side: 2 }));
-    const doorR = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 3.2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, side: 2 }));
-    doorL.position.x = -0.6; doorR.position.x = 0.6;
+    // 【修正】透過させない扉本体
+    const doorGeo = new THREE.PlaneGeometry(1.25, 3.5);
+    const doorMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: 2 }); // transparentを削除
+    const doorL = new THREE.Mesh(doorGeo, doorMat);
+    const doorR = new THREE.Mesh(doorGeo, doorMat);
+    doorL.position.x = -0.625; doorR.position.x = 0.625;
 
     // ネオングロー（水色）
-    const glow = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 3.5), new THREE.MeshBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending }));
-    glow.position.z = -0.05;
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 3.8), new THREE.MeshBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending }));
+    glow.position.z = -0.01;
 
     doorGroup.add(doorL, doorR, glow);
     doorGroup.userData = { left: doorL, right: doorR, isOpen: false };
     scene.add(doorGroup);
 
-    // 360度画像（day_2）
+    // 360度画像
     sphere = new THREE.Mesh(
         new THREE.SphereGeometry(30, 60, 40).scale(-1, 1, 1),
         new THREE.MeshBasicMaterial({ map: loader.load('./day_2.jpg'), transparent: true, opacity: 0 })
@@ -125,38 +107,10 @@ function createNeonDoor() {
     scene.add(sphere);
 }
 
-function onAction(e) {
-    if (!doorGroup || doorGroup.userData.isOpen) return;
-    // 画面タップでドアを開く
-    doorGroup.userData.isOpen = true;
-    isImmersed = true;
-}
-
 function animate() {
     requestAnimationFrame(animate);
     
     if (doorGroup && doorGroup.userData.isOpen) {
-        // スローオープン
-        doorGroup.userData.left.position.x = THREE.MathUtils.lerp(doorGroup.userData.left.position.x, -3.5, 0.01);
-        doorGroup.userData.right.position.x = THREE.MathUtils.lerp(doorGroup.userData.right.position.x, 3.5, 0.01);
-        
-        const currentPos = Math.abs(doorGroup.userData.left.position.x);
-        const progress = THREE.MathUtils.clamp((currentPos - 0.6) / 2.0, 0, 1);
-        sphere.material.opacity = progress;
-
-        if(progress > 0.8 && videoMesh) videoMesh.visible = false;
-    }
-
-    if (isImmersed) {
-        camera.position.set(0, 1.5, -5);
-    } else {
-        camera.position.set(0, 1.6, 0);
-    }
-    
-    renderer.render(scene, camera);
-}
-
-window.onload = init;
-</script>
-</body>
-</html>
+        // 【こだわり】超スローオープン (0.005)
+        doorGroup.userData.left.position.x = THREE.MathUtils.lerp(doorGroup.userData.left.position.x, -3.8, 0.005);
+        doorGroup.userData.right.position.x = THREE.MathUtils.lerp(doorGroup.userData.right.position
