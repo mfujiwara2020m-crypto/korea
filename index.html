@@ -85,7 +85,7 @@ function startCamera() {
         const video = document.createElement('video');
         video.srcObject = stream; video.play();
         const videoTex = new THREE.VideoTexture(video);
-        videoMesh = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshBasicMaterial({ map: videoTex, depthTest: false }));
+        videoMesh = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), newｊｐｇ THREE.MeshBasicMaterial({ map: videoTex, depthTest: false }));
         videoMesh.position.z = -50;
         camera.add(videoMesh);
     });
@@ -118,7 +118,7 @@ function setupPortal() {
             new THREE.SphereGeometry(40, 60, 40).scale(-1, 1, 1),
             new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0 })
         );
-        sphere.position.set(0, 0.8, -5); // ドアの中心に合わせる
+        sphere.position.set(0, 0.8, -7); // ドアの中心に合わせる
         scene.add(sphere);
     });
 }
@@ -170,3 +170,4 @@ window.onload = init;
 </script>
 </body>
 </html>
+
