@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Busan 3-Second Portal</title>
+    <title>Busan Interactive Portal</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
@@ -24,9 +24,9 @@
     <button id="btn-reset" onclick="location.reload()">最初に戻る</button>
 
 <script>
-let scene, camera, renderer, doorGroup, sphere, videoMesh, isImmersed = false;
-let openStartTime = 0; // 開き始めた時間
-const OPEN_DURATION = 3000; // 3秒間 (ミリ秒)
+let scene, camera, renderer, doorGroup, sphere, videoMesh, day1Mesh, isImmersed = false;
+let openStartTime = 0; 
+const OPEN_DURATION = 3000; // 3秒かけて開く
 const loader = new THREE.TextureLoader();
 
 function init() {
@@ -41,17 +41,21 @@ function init() {
 
     startCamera();
 
-    const day1 = new THREE.Mesh(new THREE.PlaneGeometry(12, 9), new THREE.MeshBasicMaterial({ map: loader.load('./day_1.jpg'), transparent: true }));
-    day1.position.z = -6;
-    scene.add(day1);
+    // day_1 背景作成
+    const day1Geo = new THREE.PlaneGeometry(12, 9);
+    const day1Mat = new THREE.MeshBasicMaterial({ map: loader.load('./day_1.jpg'), transparent: true });
+    day1Mesh = new THREE.Mesh(day1Geo, day1Mat);
+    day1Mesh.position.z = -6;
+    scene.add(day1Mesh);
 
+    // テキスト演出
     setTimeout(() => showEl('kr-1'), 500);
     setTimeout(() => showEl('kr-2'), 1200);
     setTimeout(() => showEl('kr-3'), 1900);
     setTimeout(() => { document.getElementById('msg-jp').style.opacity = 1; }, 3000);
 
+    // 6秒後にドア出現（背景はまだ消さない）
     setTimeout(() => {
-        scene.remove(day1);
         document.querySelector('.msg-container').style.display = 'none';
         createNeonDoor();
         document.getElementById('btn-reset').style.display = 'block';
@@ -91,7 +95,7 @@ function createNeonDoor() {
     doorGroup.position.set(0, 1.5, -5);
 
     const doorGeo = new THREE.PlaneGeometry(1.25, 3.5);
-    const doorMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: 2 });
+    const doorMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
     const doorL = new THREE.Mesh(doorGeo, doorMat);
     const doorR = new THREE.Mesh(doorGeo, doorMat);
     doorL.position.x = -0.625; doorR.position.x = 0.625;
@@ -99,57 +103,4 @@ function createNeonDoor() {
     const glow = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 3.8), new THREE.MeshBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending }));
     glow.position.z = -0.01;
 
-    doorGroup.add(doorL, doorR, glow);
-    doorGroup.userData = { isOpen: false, finished: false };
-    scene.add(doorGroup);
-
-    sphere = new THREE.Mesh(
-        new THREE.SphereGeometry(30, 60, 40).scale(-1, 1, 1),
-        new THREE.MeshBasicMaterial({ map: loader.load('./day_2.jpg'), transparent: true, opacity: 0 })
-    );
-    sphere.position.set(0, 1.5, -5);
-    scene.add(sphere);
-}
-
-function onAction() {
-    if (doorGroup && !doorGroup.userData.isOpen) {
-        doorGroup.userData.isOpen = true;
-        openStartTime = performance.now(); // アニメーション開始時間を記録
-        isImmersed = true;
-    }
-}
-
-function animate() {
-    requestAnimationFrame(animate);
-    
-    if (doorGroup && doorGroup.userData.isOpen && !doorGroup.userData.finished) {
-        const elapsed = performance.now() - openStartTime;
-        const alpha = Math.min(elapsed / OPEN_DURATION, 1); // 0.0 から 1.0 まで3秒かけて変化
-        
-        // 扉を徐々に開く (最終的に左右に4m移動)
-        doorGroup.children[0].position.x = -0.625 - (alpha * 3.5); // 左扉
-        doorGroup.children[1].position.x = 0.625 + (alpha * 3.5);  // 右扉
-        
-        // 景色の透明度を同期
-        sphere.material.opacity = alpha;
-        if(videoMesh) videoMesh.material.opacity = 1 - alpha;
-
-        // 3秒経ったら扉を消す
-        if (alpha === 1) {
-            doorGroup.userData.finished = true;
-            scene.remove(doorGroup);
-            if(videoMesh) videoMesh.visible = false;
-        }
-    }
-
-    if (isImmersed) {
-        camera.position.set(0, 1.5, -5);
-    } else {
-        camera.position.set(0, 1.6, 0);
-    }
-    renderer.render(scene, camera);
-}
-window.onload = init;
-</script>
-</body>
-</html>
+    doorGroup.add(doorL
