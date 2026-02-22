@@ -11,14 +11,18 @@
       
       <a-entity id="anchor" position="0 0 -5">
         
-        <a-image id="character" src="original2.png" width="2" height="2" transparent="true" scale="0 0 0"
-          animation__appear="property: scale; from: 0 0 0; to: 1 1 1; dur: 800; easing: easeOutBack; startEvents: startShow"
-          animation__bow="property: rotation; from: 0 0 0; to: 40 0 0; dur: 2000; startEvents: startBow; dir: alternate; loop: 2"
-          animation__jump="property: position; from: 0 0 0; to: 0 0.5 0; dur: 600; startEvents: startJump; dir: alternate; loop: 4">
+        <a-image id="character" src="original2.png" width="2" height="2" transparent="true" scale="0.5 0.5 0.5"
+          animation__appear="property: scale; from: 0.5 0.5 0.5; to: 1 1 1; dur: 1600; easing: easeOutQuad; startEvents: startShow"
+          animation__bow="property: rotation; from: 0 0 0; to: 40 0 0; dur: 4000; startEvents: startBow; dir: alternate; loop: 2"
+          animation__jump="property: position; from: 0 0 0; to: 0 0.5 0; dur: 1200; startEvents: startJump; dir: alternate; loop: 4">
         </a-image>
 
-        <a-image id="msg-img" position="0 1.8 0.1" width="2.5" height="1.2" transparent="true" visible="false" scale="0 0 0"
-          animation__show="property: scale; from: 0 0 0; to: 1 1 1; dur: 500; easing: easeOutBack">
+        <a-image id="msg-youkoso" src="youkoso.png" position="0 2.2 0.1" width="2.5" height="1.2" transparent="true" visible="false" scale="0.5 0.5 0.5"
+          animation__show="property: scale; from: 0.5 0.5 0.5; to: 1 1 1; dur: 1000; easing: easeOutQuad; startEvents: show">
+        </a-image>
+
+        <a-image id="msg-kangei" src="kangei.png" position="0 1.2 0.1" width="2.5" height="1.2" transparent="true" visible="false" scale="0.5 0.5 0.5"
+          animation__show="property: scale; from: 0.5 0.5 0.5; to: 1 1 1; dur: 1000; easing: easeOutQuad; startEvents: show">
         </a-image>
 
       </a-entity>
@@ -28,26 +32,27 @@
 
     <script>
       const char = document.querySelector('#character');
-      const msgImg = document.querySelector('#msg-img');
+      const msg1 = document.querySelector('#msg-youkoso');
+      const msg2 = document.querySelector('#msg-kangei');
 
       window.onload = () => {
-        // 1. 最初にキャラクターが大きく登場
+        // 1. キャラクターがゆっくり登場
         setTimeout(() => {
           char.emit('startShow');
           
-          // 2. 登場した直後に「ようこそ」を表示してお辞儀
+          // 2. 登場後、上側に「ようこそ」を表示してお辞儀
           setTimeout(() => {
-            msgImg.setAttribute('src', 'youkoso.png');
-            msgImg.setAttribute('visible', 'true');
-            msgImg.emit('show'); // 文字も大きく出現
+            msg1.setAttribute('visible', 'true');
+            msg1.emit('show');
             char.emit('startBow');
             
-            // 3. 最後にバウンドして「歓迎します」
+            // 3. お辞儀の途中で下側に「歓迎します」を追加表示してバウンド
             setTimeout(() => {
-              msgImg.setAttribute('src', 'kangei.png');
+              msg2.setAttribute('visible', 'true');
+              msg2.emit('show');
               char.emit('startJump');
-            }, 4500);
-          }, 1000);
+            }, 5000); // さらにゆっくり間隔を空けました
+          }, 2000);
         }, 2000);
       };
     </script>
