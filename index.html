@@ -1,60 +1,176 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <title>Welcome AR</title>
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-  </head>
-  <body style="margin: 0; overflow: hidden;">
-    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
-      
-      <a-entity id="anchor" position="0 0 -5">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Busan VR - Perfect Motion</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
+        #permission-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
+        .start-btn { padding: 15px 40px; background: #ff00de; color: white; border: none; border-radius: 30px; font-size: 1.2rem; cursor: pointer; box-shadow: 0 0 20px #ff00de; }
+        .msg-container { position: absolute; top: 30%; width: 100%; text-align: center; z-index: 100; pointer-events: none; }
+        .kr-line { display: block; opacity: 0; transition: opacity 1.5s, transform 1.5s; color: #ff00de; font-size: 2.5rem; font-weight: bold; filter: drop-shadow(0 0 10px #ff00de); transform: translateY(10px); }
+        #msg-jp { margin-top: 20px; opacity: 0; transition: opacity 1s; color: #ffffff; font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+
+    <div id="permission-overlay">
+        <p>釜山へのゲートを準備中...</p>
+        <button class="start-btn" onclick="requestPermission()">体験を開始する</button>
+    </div>
+
+    <div class="msg-container">
+        <span id="kr-1" class="kr-line">부산에</span>
+        <span id="kr-2" class="kr-line">오신 것을</span>
+        <span id="kr-3" class="kr-line">환영합니다</span>
+        <div id="msg-jp">釜山へようこそ</div>
+    </div>
+
+<script>
+let scene, camera, renderer, doorL, doorR, glow, sphere, videoMesh, day1Mesh;
+let isOpening = false, openStartTime = 0;
+const OPEN_DURATION = 3000;
+const loader = new THREE.TextureLoader();
+
+// iPhoneなどのセンサー許可リクエスト
+function requestPermission() {
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission()
+            .then(permissionState => {
+                if (permissionState === 'granted') {
+                    startApp();
+                }
+            })
+            .catch(console.error);
+    } else {
+        startApp(); // AndroidやPC
+    }
+}
+
+function startApp() {
+    document.getElementById('permission-overlay').style.display = 'none';
+    init();
+}
+
+function init() {
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+    camera.rotation.order = 'YXZ';
+
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    startCamera();
+
+    loader.load('./day_1.jpg', (tex) => {
+        day1Mesh = new THREE.Mesh(new THREE.PlaneGeometry(16, 12), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+        day1Mesh.position.z = -8;
+        scene.add(day1Mesh);
+    });
+
+    setTimeout(() => showEl('kr-1'), 500);
+    setTimeout(() => showEl('kr-2'), 1500);
+    setTimeout(() => showEl('kr-3'), 2500);
+    setTimeout(() => { document.getElementById('msg-jp').style.opacity = 1; }, 4000);
+
+    setTimeout(() => {
+        document.querySelector('.msg-container').style.display = 'none';
+        setupPortal();
+    }, 7000);
+
+    window.addEventListener('deviceorientation', handleOrientation, true);
+    window.addEventListener('touchstart', onAction);
+    window.addEventListener('mousedown', onAction);
+
+    animate();
+}
+
+function handleOrientation(e) {
+    if (!e.alpha) return;
+    // センサー値を補正してカメラ回転に適用
+    const beta = e.beta * Math.PI / 180;
+    const gamma = e.gamma * Math.PI / 180;
+    const alpha = e.alpha * Math.PI / 180;
+    camera.rotation.set(beta - Math.PI/2, alpha, 0);
+}
+
+function startCamera() {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(stream => {
+        const video = document.createElement('video');
+        video.srcObject = stream; video.play();
+        videoMesh = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshBasicMaterial({ map: new THREE.VideoTexture(video), depthTest: false }));
+        videoMesh.position.z = -100;
+        camera.add(videoMesh);
+    });
+}
+
+function setupPortal() {
+    const doorY = 0.8;
+    doorL = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 4.0), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    doorR = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 4.0), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    doorL.position.set(-0.8, doorY, -5);
+    doorR.position.set(0.8, doorY, -5);
+
+    glow = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 4.5), new THREE.MeshBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending }));
+    glow.position.set(0, doorY, -5.01);
+    scene.add(doorL, doorR, glow);
+
+    loader.load('./day_2.jpg', (tex) => {
+        // 巨大な球体を作成（半径100）
+        sphere = new THREE.Mesh(
+            new THREE.SphereGeometry(100, 64, 32).scale(-1, 1, 1),
+            new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0 })
+        );
+        sphere.position.set(0, 0, -80); // 非常に遠くに配置
+        scene.add(sphere);
+    });
+}
+
+function onAction() {
+    if (doorL && !isOpening) {
+        isOpening = true;
+        openStartTime = performance.now();
+    }
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    
+    if (isOpening) {
+        const elapsed = performance.now() - openStartTime;
+        const alpha = Math.min(elapsed / OPEN_DURATION, 1); 
         
-        <a-image id="character" src="original2.png" width="2" height="2" transparent="true" scale="0.5 0.5 0.5"
-          animation__appear="property: scale; from: 0.5 0.5 0.5; to: 1 1 1; dur: 1600; easing: easeOutQuad; startEvents: startShow"
-          animation__bow="property: rotation; from: 0 0 0; to: 40 0 0; dur: 4000; startEvents: startBow; dir: alternate; loop: 2"
-          animation__jump="property: position; from: 0 0 0; to: 0 0.5 0; dur: 1200; startEvents: startJump; dir: alternate; loop: 4">
-        </a-image>
+        doorL.position.x = -0.8 - (alpha * 10.0); 
+        doorR.position.x = 0.8 + (alpha * 10.0);  
+        glow.material.opacity = 0.8 * (1 - alpha);
 
-        <a-image id="msg-youkoso" src="youkoso.png" position="0 2.2 0.1" width="2.5" height="1.2" transparent="true" visible="false" scale="0.5 0.5 0.5"
-          animation__show="property: scale; from: 0.5 0.5 0.5; to: 1 1 1; dur: 1000; easing: easeOutQuad; startEvents: show">
-        </a-image>
+        if(sphere) {
+            sphere.material.opacity = alpha;
+            // 景色を自分に向かって引き寄せ、最後は自分を包む位置へ
+            sphere.position.z = THREE.MathUtils.lerp(-80, 0, alpha);
+        }
+        
+        if(day1Mesh) day1Mesh.material.opacity = 1 - alpha;
+        if(videoMesh) videoMesh.material.opacity = (1 - alpha) * 0.5;
 
-        <a-image id="msg-kangei" src="kangei.png" position="0 1.2 0.1" width="2.5" height="1.2" transparent="true" visible="false" scale="0.5 0.5 0.5"
-          animation__show="property: scale; from: 0.5 0.5 0.5; to: 1 1 1; dur: 1000; easing: easeOutQuad; startEvents: show">
-        </a-image>
+        // カメラも扉を突き抜けて前進
+        camera.position.z = THREE.MathUtils.lerp(0, -10, alpha);
 
-      </a-entity>
+        if (alpha === 1) {
+            scene.remove(doorL, doorR, glow);
+            if(day1Mesh) scene.remove(day1Mesh);
+            isOpening = false;
+        }
+    }
+    renderer.render(scene, camera);
+}
 
-      <a-entity camera></a-entity>
-    </a-scene>
-
-    <script>
-      const char = document.querySelector('#character');
-      const msg1 = document.querySelector('#msg-youkoso');
-      const msg2 = document.querySelector('#msg-kangei');
-
-      window.onload = () => {
-        // 1. キャラクターがゆっくり登場
-        setTimeout(() => {
-          char.emit('startShow');
-          
-          // 2. 登場後、上側に「ようこそ」を表示してお辞儀
-          setTimeout(() => {
-            msg1.setAttribute('visible', 'true');
-            msg1.emit('show');
-            char.emit('startBow');
-            
-            // 3. お辞儀の途中で下側に「歓迎します」を追加表示してバウンド
-            setTimeout(() => {
-              msg2.setAttribute('visible', 'true');
-              msg2.emit('show');
-              char.emit('startJump');
-            }, 5000); // さらにゆっくり間隔を空けました
-          }, 2000);
-        }, 2000);
-      };
-    </script>
-  </body>
+function showEl(id) { const el = document.getElementById(id); if(el){ el.style.opacity = 1; el.style.transform = "translateY(0)"; } }
+</script>
+</body>
 </html>
