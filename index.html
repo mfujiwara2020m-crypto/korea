@@ -1,5 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Busan Deep Portal - Recovery</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
+        .msg-container { position: absolute; top: 30%; width: 100%; text-align: center; z-index: 100; pointer-events: none; }
+        .kr-line { 
+            display: block; opacity: 0; transition: opacity 1s, transform 1s; 
+            color: #ff00de; font-size: 2.5rem; font-weight: bold; 
+            filter: drop-shadow(0 0 10px #ff00de); transform: translateY(10px); 
+        }
+        #msg-jp { margin-top: 20px; opacity: 0; transition: opacity 1s; color: #ffffff; font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+
+    <div class="msg-container">
+        <span id="kr-1" class="kr-line">부산에</span>
+        <span id="kr-2" class="kr-line">오신 것을</span>
+        <span id="kr-3" class="kr-line">환영합니다</span>
+        <div id="msg-jp">釜山へようこそ</div>
+    </div>
+
 <script>
-// ... (中略：変数宣言などはそのまま)
+let scene, camera, renderer, doorL, doorR, glow, sphere, videoMesh, day1Mesh;
+let isOpening = false, isImmersed = false, openStartTime = 0;
+const OPEN_DURATION = 3000;
+const loader = new THREE.TextureLoader();
+
+function init() {
+    // 1. レンダラーを即座に作成し、真っ白を防ぐ
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // 2. カメラ起動（失敗しても全体の描画は止めない）
+    startCamera();
+
+    // 3. day_1（背景）を読み込み（なければスキップされる）
+    loader.load('./day_1.jpg', (tex) => {
+        const day1Geo = new THREE.PlaneGeometry(16, 12);
+        day1Mesh = new THREE.Mesh(day1Geo, new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+        day1Mesh.position.z = -8;
+        scene.add(day1Mesh);
+    }, undefined, (e) => console.log("day_1 load skip"));
+
+    // 4. 文字演出
+    setTimeout(() => { showEl('kr-1'); }, 500);
+    setTimeout(() => { showEl('kr-2'); }, 1200);
+    setTimeout(() => { showEl('kr-3'); }, 1900);
+    setTimeout(() => { document.getElementById('msg-jp').style.opacity = 1; }, 3000);
+
+    // 5. 6秒後に扉を設置
+    setTimeout(() => {
+        document.querySelector('.msg-container').style.display = 'none';
+        setupPortal();
+    }, 6000);
+
+    window.addEventListener('deviceorientation', (e) => {
+        if (!e.alpha) return;
+        camera.rotation.set((e.beta - 90) * Math.PI / 180, e.alpha * Math.PI / 180, 0);
+    }, true);
+
+    window.addEventListener('touchstart', onAction);
+    window.addEventListener('mousedown', onAction);
+
+    animate();
+}
+
+function startCamera() {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(stream => {
+        const video = document.createElement('video');
+        video.srcObject = stream; video.play();
+        const videoTex = new THREE.VideoTexture(video);
+        videoMesh = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshBasicMaterial({ map: videoTex, depthTest: false }));
+        videoMesh.position.z = -50;
+        camera.add(videoMesh);
+    }).catch(e => console.log("Camera access denied"));
+}
 
 function setupPortal() {
     const doorY = 0.8;
@@ -13,22 +99,25 @@ function setupPortal() {
 
     glow = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 3.8), new THREE.MeshBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending }));
     glow.position.set(0, doorY, -5.01);
+    scene.add(doorL, doorR, glow);
 
-    floorMesh = new THREE.Mesh(new THREE.CircleGeometry(2.5, 32), new THREE.MeshBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, side: 2 }));
-    floorMesh.rotation.x = -Math.PI / 2;
-    floorMesh.position.set(0, -1.0, -5);
-
-    scene.add(doorL, doorR, glow, floorMesh);
-
+    // 【奥行き強化】景色を -20 の奥に配置
     loader.load('./day_2.jpg', (tex) => {
         sphere = new THREE.Mesh(
-            new THREE.SphereGeometry(60, 60, 40).scale(-1, 1, 1), // 球体を大きくして空間を広げる
+            new THREE.SphereGeometry(60, 60, 40).scale(-1, 1, 1),
             new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0 })
         );
-        // 【重要】景色を扉よりもかなり「奥」に配置
-        sphere.position.set(0, 0.8, -20); 
+        sphere.position.set(0, 0.8, -25); // さらに奥へ
         scene.add(sphere);
-    });
+    }, undefined, (e) => console.log("day_2 load skip"));
+}
+
+function onAction() {
+    if (doorL && !isOpening) {
+        isOpening = true;
+        openStartTime = performance.now();
+        isImmersed = true;
+    }
 }
 
 function animate() {
@@ -44,25 +133,29 @@ function animate() {
 
         if(sphere) {
             sphere.material.opacity = alpha;
-            // 【重要】景色もカメラに近づくように動かすことで、自然に溶け込む
-            sphere.position.z = THREE.MathUtils.lerp(-20, -5, alpha);
+            sphere.position.z = THREE.MathUtils.lerp(-25, -10, alpha); // 奥から迫ってくる演出
         }
-        
         if(day1Mesh) day1Mesh.material.opacity = 1 - alpha;
         if(videoMesh) videoMesh.material.opacity = (1 - alpha) * 0.5;
 
-        // 【重要】カメラの移動距離を増やし、より奥へ「踏み込む」演出
-        camera.position.z = THREE.MathUtils.lerp(0, -10, alpha);
-        
-        if(floorMesh) floorMesh.material.opacity = 0.3 * (1 - alpha);
+        // カメラが奥に踏み込む
+        camera.position.z = THREE.MathUtils.lerp(0, -15, alpha);
 
         if (alpha === 1) {
-            scene.remove(doorL, doorR, glow, floorMesh);
+            scene.remove(doorL, doorR, glow);
             if(day1Mesh) scene.remove(day1Mesh);
             isOpening = false;
         }
     }
     renderer.render(scene, camera);
 }
-// ... (以降、以前のコードと同じ)
+
+function showEl(id) { 
+    const el = document.getElementById(id); 
+    if(el){ el.style.opacity = 1; el.style.transform = "translateY(0)"; }
+}
+
+window.onload = init;
 </script>
+</body>
+</html>
