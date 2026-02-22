@@ -1,171 +1,182 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Busan Absolute Fixed Portal</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<style>
-    body { margin:0; overflow:hidden; background:#000; font-family:sans-serif; }
-    #menu-overlay {
-        position:absolute;top:0;left:0;width:100%;height:100%;
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
-        background:rgba(0,0,0,0.9);color:white;z-index:20;text-align:center;
-    }
-    .menu-btn {
-        width: 220px; padding:15px; margin:10px; font-size:18px;
-        background:transparent; border:2px solid #00ffff; border-radius:5px;
-        color:#00ffff; cursor:pointer; text-shadow: 0 0 8px #00ffff;
-    }
-    #btn-reset {
-        position:absolute;top:20px;right:20px;padding:10px 20px;
-        background:rgba(0,0,0,0.5);border:1px solid #00ffff;
-        color:#00ffff;border-radius:5px;z-index:25;display:none;
-    }
-    #status-ui {
-        position:absolute; bottom:15%; width:100%; text-align:center;
-        color:#ff00ff; font-weight:bold; z-index:10; pointer-events:none;
-        text-shadow: 0 0 10px #ff00ff; font-size: 1.2rem;
-    }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Busan Welcome Portal</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Hiragino Kaku Gothic ProN', sans-serif; }
+        
+        /* メッセージ演出 */
+        #msg-kr {
+            position: absolute; top: 40%; width: 100%; text-align: center;
+            color: #bf55ec; font-size: 2.5rem; font-weight: bold;
+            text-shadow: 0 0 15px #bf55ec, 0 0 30px #bf55ec;
+            display: none; z-index: 100; opacity: 0; transition: opacity 1s;
+        }
+        #msg-jp {
+            position: absolute; top: 55%; width: 100%; text-align: center;
+            color: #ffffff; font-size: 1.2rem;
+            display: none; z-index: 100; opacity: 0; transition: opacity 1s;
+        }
+
+        /* 操作ボタン */
+        #btn-reset {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            padding: 10px 25px; background: rgba(0,0,0,0.6); border: 1px solid #fff;
+            color: #fff; border-radius: 30px; z-index: 150; display: none; cursor: pointer;
+        }
+    </style>
 </head>
 <body>
 
-<div id="menu-overlay">
-    <h1 style="color:#00ffff; letter-spacing: 5px;">BUSAN NEON</h1>
-    <button class="menu-btn" onclick="startPortal('day')">MORNING</button>
-    <button class="menu-btn" onclick="startPortal('noon')">NOON</button>
-    <button class="menu-btn" onclick="startPortal('night')">NIGHT</button>
-</div>
-
-<div id="status-ui">画面を長押しして5m進んでください</div>
-<button id="btn-reset" onclick="resetToMenu()">最初に戻る</button>
+    <div id="msg-kr">부산에 오신 것을 환영합니다</div>
+    <div id="msg-jp">釜山へようこそ</div>
+    <button id="btn-reset" onclick="location.reload()">最初に戻る</button>
 
 <script>
-let scene, camera, renderer, currentPortal=null, tunnelGroup, moveZ=0, targetZ=0, isTouch=false, isImmersed=false;
+let scene, camera, renderer, doorGroup, sphere, isImmersed = false, videoMesh;
 const loader = new THREE.TextureLoader();
 
-const portalData = {
-    day:   { color: 0x00ffff, img: './day_1.jpg' },
-    noon:  { color: 0xffea00, img: './day_2.jpg' },
-    night: { color: 0xbf55ec, img: './night_1.jpg' }
-};
+// 演出フラグ
+let phase = 1; 
 
-function initScene() {
+function init() {
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 1.6, 0);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.rotation.order = 'YXZ'; // 首振りのための順序固定
 
-    renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+    renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // 背景カメラ映像
-    navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}})
+    // AR背景用のカメラ映像
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
     .then(stream => {
         const video = document.createElement('video');
-        video.srcObject = stream; video.setAttribute('playsinline',''); video.play();
-        scene.background = new THREE.VideoTexture(video);
+        video.srcObject = stream; video.setAttribute('playsinline', ''); video.play();
+        const videoTex = new THREE.VideoTexture(video);
+        const geo = new THREE.PlaneGeometry(100, 100);
+        const mat = new THREE.MeshBasicMaterial({ map: videoTex, depthTest: false });
+        videoMesh = new THREE.Mesh(geo, mat);
+        videoMesh.position.z = -50;
+        camera.add(videoMesh); 
+        scene.add(camera);
     });
 
-    createNeonTunnel();
+    // ① フェーズ1: day_1.jpg 背景の表示
+    const day1Tex = loader.load('./day_1.jpg');
+    const bgPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(20, 15),
+        new THREE.MeshBasicMaterial({ map: day1Tex, transparent: true })
+    );
+    bgPlane.position.z = -5;
+    scene.add(bgPlane);
 
-    document.addEventListener('touchstart', e => { if(e.target.tagName !== 'BUTTON') isTouch=true; });
-    document.addEventListener('touchend', () => isTouch=false);
-    
-    window.addEventListener('deviceorientation', e => {
-        // デバイスの向き（目線）を更新。カメラ座標とは独立して動作
-        camera.rotation.set((e.beta-90)*Math.PI/180, 0, e.alpha*Math.PI/180, 'YXZ');
+    // メッセージ演出の開始
+    setTimeout(() => {
+        const kr = document.getElementById('msg-kr');
+        kr.style.display = 'block'; setTimeout(() => kr.style.opacity = 1, 100);
+    }, 500);
+
+    setTimeout(() => {
+        const jp = document.getElementById('msg-jp');
+        jp.style.display = 'block'; setTimeout(() => jp.style.opacity = 1, 100);
+    }, 3500);
+
+    // ② 5秒後に背景消去、ドア出現
+    setTimeout(() => {
+        scene.remove(bgPlane);
+        document.getElementById('msg-kr').style.opacity = 0;
+        document.getElementById('msg-jp').style.opacity = 0;
+        createDoor();
+        document.getElementById('btn-reset').style.display = 'block';
+    }, 5000);
+
+    // ジャイロ制御
+    window.addEventListener('deviceorientation', (e) => {
+        if (!e.alpha) return;
+        const alpha = e.alpha * Math.PI / 180;
+        const beta = (e.beta - 90) * Math.PI / 180;
+        camera.rotation.set(beta, alpha, 0);
     });
+
+    // クリック判定
+    window.addEventListener('click', onDocumentClick);
 
     animate();
 }
 
-function createNeonTunnel() {
-    tunnelGroup = new THREE.Group();
-    const gridColor = 0xff00ff;
-    const createGrid = (y, rX, rY, posX=0) => {
-        const g = new THREE.GridHelper(200, 40, gridColor, gridColor);
-        g.position.set(posX, y, 0);
-        g.rotation.set(rX, 0, rY);
-        return g;
-    };
-    tunnelGroup.add(createGrid(0, 0, 0)); // 床
-    tunnelGroup.add(createGrid(4, 0, 0)); // 天井
-    tunnelGroup.add(createGrid(2, Math.PI/2, Math.PI/2, -3)); // 左壁
-    tunnelGroup.add(createGrid(2, Math.PI/2, Math.PI/2, 3));  // 右壁
-    scene.add(tunnelGroup);
+function createDoor() {
+    doorGroup = new THREE.Group();
+    doorGroup.position.set(0, 1.5, -5);
+
+    const doorMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+    const frameMat = new THREE.MeshBasicMaterial({ color: 0x00ffff }); // ネオン風枠
+
+    // 2枚の扉
+    const doorL = new THREE.Mesh(new THREE.PlaneGeometry(1, 2.5), doorMat);
+    const doorR = new THREE.Mesh(new THREE.PlaneGeometry(1, 2.5), doorMat);
+    doorL.position.x = -0.5;
+    doorR.position.x = 0.5;
+
+    // ネオン枠
+    const frameL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.6, 0.1), frameMat);
+    const frameR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.6, 0.1), frameMat);
+    frameL.position.x = -1.05;
+    frameR.position.x = 1.05;
+
+    doorGroup.add(doorL, doorR, frameL, frameR);
+    doorGroup.userData = { left: doorL, right: doorR, isOpen: false };
+    scene.add(doorGroup);
+
+    // 扉の奥に day_2.jpg を配置（最初は透明）
+    const day2Tex = loader.load('./day_2.jpg');
+    sphere = new THREE.Mesh(
+        new THREE.SphereGeometry(20, 60, 40).scale(-1, 1, 1),
+        new THREE.MeshBasicMaterial({ map: day2Tex, transparent: true, opacity: 0 })
+    );
+    sphere.position.set(0, 1.5, -5);
+    scene.add(sphere);
 }
 
-function startPortal(type) {
-    if(!scene) initScene();
-    if(currentPortal) scene.remove(currentPortal.group);
-
-    const data = portalData[type];
-    const group = new THREE.Group();
-    group.position.set(0, 1.5, -5); 
-
-    const tex = loader.load(data.img);
-    const sphere = new THREE.Mesh(
-        new THREE.SphereGeometry(20, 60, 40).scale(-1, 1, 1),
-        new THREE.MeshBasicMaterial({map:tex, transparent:true, opacity:0})
-    );
-    
-    const frame = new THREE.Mesh(
-        new THREE.RingGeometry(1.2, 1.4, 4),
-        new THREE.MeshBasicMaterial({color: data.color, side: THREE.DoubleSide})
-    );
-    frame.rotation.z = Math.PI / 4;
-
-    group.add(sphere, frame);
-    scene.add(group);
-
-    currentPortal = { group, sphere, frame, z: -5 };
-    isImmersed = false;
-    moveZ = targetZ = 0;
-    tunnelGroup.visible = true; // ネオン再表示
-
-    document.getElementById('menu-overlay').style.display = 'none';
-    document.getElementById('btn-reset').style.display = 'block';
-    document.getElementById('status-ui').innerText = "5m先の世界へ進んでください";
+function onDocumentClick(event) {
+    if (doorGroup && !doorGroup.userData.isOpen) {
+        doorGroup.userData.isOpen = true;
+        // 没入フラグを立てる
+        isImmersed = true;
+        if(videoMesh) videoMesh.visible = false; // 現実世界を消す
+    }
 }
 
 function animate() {
     requestAnimationFrame(animate);
 
-    if(!isImmersed) {
-        // 移動フェーズ
-        if(isTouch) targetZ += 0.04; // 移動速度
-        moveZ += (targetZ - moveZ) * 0.1;
-        camera.position.z = -moveZ;
-
-        // 没入判定（5m地点）
-        if(-camera.position.z >= 5.0) {
-            isImmersed = true;
-            tunnelGroup.visible = false;      // ネオン線を消す
-            currentPortal.frame.visible = false; // ドア枠を消す
-            document.getElementById('status-ui').innerText = "没入中：目線のみ有効";
-        }
-    } else {
-        // 【絶対固定】移動計算を無視し、座標を球体中心に強制ロック
-        // これにより物理的なスマホの揺れ（前後左右の移動）を無効化します
-        camera.position.set(0, 1.5, -5);
+    if (doorGroup && doorGroup.userData.isOpen) {
+        // 扉がゆっくり開く
+        doorGroup.userData.left.position.x = THREE.MathUtils.lerp(doorGroup.userData.left.position.x, -3, 0.05);
+        doorGroup.userData.right.position.x = THREE.MathUtils.lerp(doorGroup.userData.right.position.x, 3, 0.05);
+        doorGroup.userData.left.rotation.y = THREE.MathUtils.lerp(doorGroup.userData.left.rotation.y, Math.PI/2, 0.05);
+        doorGroup.userData.right.rotation.y = THREE.MathUtils.lerp(doorGroup.userData.right.rotation.y, -Math.PI/2, 0.05);
+        
+        // 景色の表示
+        sphere.material.opacity = THREE.MathUtils.lerp(sphere.material.opacity, 1, 0.05);
     }
 
-    if(currentPortal) {
-        const dist = Math.abs(camera.position.z - currentPortal.z);
-        // 画像のフェードイン処理
-        const opacity = THREE.MathUtils.clamp((3.5 - dist) / 1.5, 0, 1);
-        currentPortal.sphere.material.opacity = opacity;
+    if (isImmersed) {
+        // ③ 画像の完全固定
+        // カメラの座標を球体の中心にロック。スマホを動かしてもブレません。
+        camera.position.set(0, 1.5, -5);
+    } else {
+        camera.position.set(0, 1.6, 0);
     }
 
     renderer.render(scene, camera);
 }
 
-function resetToMenu() {
-    location.reload(); 
-}
+window.onload = init;
 </script>
 </body>
 </html>
