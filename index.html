@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Busan Portal Stable</title>
+    <title>Busan 3-Second Portal</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
@@ -25,10 +25,11 @@
 
 <script>
 let scene, camera, renderer, doorGroup, sphere, videoMesh, isImmersed = false;
+let openStartTime = 0; // 開き始めた時間
+const OPEN_DURATION = 3000; // 3秒間 (ミリ秒)
 const loader = new THREE.TextureLoader();
 
 function init() {
-    // 1. 基本設定
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.rotation.order = 'YXZ';
@@ -38,42 +39,31 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // 2. カメラ映像（エラーが出ても次へ進むようにtry-catchを最小限に）
     startCamera();
 
-    // 3. day_1背景（初期表示）
-    const day1Geo = new THREE.PlaneGeometry(12, 9);
-    const day1Mat = new THREE.MeshBasicMaterial({ 
-        map: loader.load('./day_1.jpg', undefined, undefined, () => console.log("day_1 load skip")),
-        transparent: true 
-    });
-    const day1 = new THREE.Mesh(day1Geo, day1Mat);
+    const day1 = new THREE.Mesh(new THREE.PlaneGeometry(12, 9), new THREE.MeshBasicMaterial({ map: loader.load('./day_1.jpg'), transparent: true }));
     day1.position.z = -6;
-    day1.renderOrder = 1; // 描画順を固定
     scene.add(day1);
 
-    // 4. メッセージ演出
     setTimeout(() => showEl('kr-1'), 500);
     setTimeout(() => showEl('kr-2'), 1200);
     setTimeout(() => showEl('kr-3'), 1900);
-    setTimeout(() => { document.getElementById('msg-jp').style.opacity = 1; }, 3500);
+    setTimeout(() => { document.getElementById('msg-jp').style.opacity = 1; }, 3000);
 
-    // 5. ドア出現への移行
     setTimeout(() => {
         scene.remove(day1);
         document.querySelector('.msg-container').style.display = 'none';
         createNeonDoor();
         document.getElementById('btn-reset').style.display = 'block';
-    }, 6500);
+    }, 6000);
 
-    // デバイス回転
     window.addEventListener('deviceorientation', (e) => {
         if (!e.alpha) return;
         camera.rotation.set((e.beta - 90) * Math.PI / 180, e.alpha * Math.PI / 180, 0);
     });
 
-    window.addEventListener('touchstart', () => { if(doorGroup) doorGroup.userData.isOpen = true; isImmersed = true; });
-    window.addEventListener('mousedown', () => { if(doorGroup) doorGroup.userData.isOpen = true; isImmersed = true; });
+    window.addEventListener('touchstart', onAction);
+    window.addEventListener('mousedown', onAction);
 
     animate();
 }
@@ -86,11 +76,9 @@ function startCamera() {
         const videoTex = new THREE.VideoTexture(video);
         videoMesh = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshBasicMaterial({ map: videoTex, depthTest: false }));
         videoMesh.position.z = -50;
-        videoMesh.renderOrder = 0; // 最背面に配置
         camera.add(videoMesh);
         scene.add(camera);
-    })
-    .catch(err => console.log("Camera access denied or error."));
+    }).catch(err => console.log(err));
 }
 
 function showEl(id) { 
@@ -102,47 +90,56 @@ function createNeonDoor() {
     doorGroup = new THREE.Group();
     doorGroup.position.set(0, 1.5, -5);
 
-    // 【修正】完全に不透明な扉（後ろを通さない）
     const doorGeo = new THREE.PlaneGeometry(1.25, 3.5);
-    const doorMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, depthWrite: true }); 
+    const doorMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: 2 });
     const doorL = new THREE.Mesh(doorGeo, doorMat);
     const doorR = new THREE.Mesh(doorGeo, doorMat);
     doorL.position.x = -0.625; doorR.position.x = 0.625;
-    doorL.renderOrder = 2; doorR.renderOrder = 2;
 
-    // ネオングロー（水色）
     const glow = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 3.8), new THREE.MeshBasicMaterial({ color: 0x00f2ff, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending }));
     glow.position.z = -0.01;
-    glow.renderOrder = 3;
 
     doorGroup.add(doorL, doorR, glow);
-    doorGroup.userData = { left: doorL, right: doorR, isOpen: false };
+    doorGroup.userData = { isOpen: false, finished: false };
     scene.add(doorGroup);
 
-    // 360度画像 (day_2)
     sphere = new THREE.Mesh(
         new THREE.SphereGeometry(30, 60, 40).scale(-1, 1, 1),
         new THREE.MeshBasicMaterial({ map: loader.load('./day_2.jpg'), transparent: true, opacity: 0 })
     );
     sphere.position.set(0, 1.5, -5);
-    sphere.renderOrder = 1; // 扉の隙間から見せるため、扉より低いorder
     scene.add(sphere);
+}
+
+function onAction() {
+    if (doorGroup && !doorGroup.userData.isOpen) {
+        doorGroup.userData.isOpen = true;
+        openStartTime = performance.now(); // アニメーション開始時間を記録
+        isImmersed = true;
+    }
 }
 
 function animate() {
     requestAnimationFrame(animate);
     
-    if (doorGroup && doorGroup.userData.isOpen) {
-        // 超スローオープン
-        doorGroup.userData.left.position.x = THREE.MathUtils.lerp(doorGroup.userData.left.position.x, -3.8, 0.005);
-        doorGroup.userData.right.position.x = THREE.MathUtils.lerp(doorGroup.userData.right.position.x, 3.8, 0.005);
+    if (doorGroup && doorGroup.userData.isOpen && !doorGroup.userData.finished) {
+        const elapsed = performance.now() - openStartTime;
+        const alpha = Math.min(elapsed / OPEN_DURATION, 1); // 0.0 から 1.0 まで3秒かけて変化
         
-        const currentGap = Math.abs(doorGroup.userData.left.position.x) - 0.625;
-        const progress = THREE.MathUtils.clamp(currentGap / 1.5, 0, 1);
-        sphere.material.opacity = progress;
+        // 扉を徐々に開く (最終的に左右に4m移動)
+        doorGroup.children[0].position.x = -0.625 - (alpha * 3.5); // 左扉
+        doorGroup.children[1].position.x = 0.625 + (alpha * 3.5);  // 右扉
+        
+        // 景色の透明度を同期
+        sphere.material.opacity = alpha;
+        if(videoMesh) videoMesh.material.opacity = 1 - alpha;
 
-        // 没入中
-        if(progress > 0.05 && videoMesh) videoMesh.material.opacity = 1 - (progress * 1.5);
+        // 3秒経ったら扉を消す
+        if (alpha === 1) {
+            doorGroup.userData.finished = true;
+            scene.remove(doorGroup);
+            if(videoMesh) videoMesh.visible = false;
+        }
     }
 
     if (isImmersed) {
@@ -152,7 +149,6 @@ function animate() {
     }
     renderer.render(scene, camera);
 }
-
 window.onload = init;
 </script>
 </body>
