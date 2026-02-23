@@ -122,30 +122,35 @@ function animate() {
             planeMesh.position.y = Math.sin(time) * 0.1;
         }
     } 
-    else if (phase === 'warp') {
+   else if (phase === 'warp') {
         const elapsed = performance.now() - warpStartTime;
-        doorL.position.y = Math.min(8, doorL.position.y + 0.15);
-        doorR.position.y = Math.max(-8, doorR.position.y - 0.15);
+
+        // 1. 扉が動くタイミング：ここでは「0.7秒後」に設定（お好みで調整してください）
+        if (elapsed > 700) { 
+            doorL.position.y = Math.min(8, doorL.position.y + 0.15);
+            doorR.position.y = Math.max(-8, doorR.position.y - 0.15);
+        }
 
         if (planeMesh) {
-            let isNearDoor = (planeMesh.position.x > 0);
+            // 2. 加速のタイミング：扉が開き始めてから加速するように「x > 4」くらいに設定
+            let isNearDoor = (planeMesh.position.x > 4); 
             let speed = isNearDoor ? 1.8 : 0.08;
+
             planeMesh.position.x += speed;
             planeMesh.position.z -= speed * 0.6;
 
-            // 扉に触れたら粒子を出す
+            // 3. 粒子が出るタイミング：加速と同時に出す
             if (isNearDoor) {
                 particles.material.opacity = 1;
                 particles.position.set(planeMesh.position.x, planeMesh.position.y, planeMesh.position.z);
-                particles.rotation.y += 0.1;
             }
 
-            if (planeMesh.position.x > 18) {
+            if (planeMesh.position.x > 20) {
                 phase = 'whiteout';
                 warpStartTime = performance.now();
             }
         }
-    } 
+    }
     else if (phase === 'whiteout') {
         const elapsed = performance.now() - warpStartTime;
         whiteoutEl.style.opacity = elapsed < 100 ? elapsed / 100 : 1;
@@ -172,6 +177,7 @@ function animate() {
 </script>
 </body>
 </html>
+
 
 
 
