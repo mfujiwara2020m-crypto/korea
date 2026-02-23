@@ -48,28 +48,26 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // 1. 背景 (sora.jpg)
-    loader.load('./sora.jpg', (tex) => {
-        tex.wrapS = THREE.RepeatWrapping;
-        skyMesh = new THREE.Mesh(new THREE.PlaneGeometry(60, 40), new THREE.MeshBasicMaterial({ map: tex }));
-        skyMesh.position.z = -25;
-        scene.add(skyMesh);
-    });
+   loader.load('./hikouki.png', (tex) => {
+    // 1. 画像そのものを水平（横）方向に反転させる設定
+    tex.repeat.x = -1;
+    tex.offset.x = 1;
 
-    // 2. 飛行機 (hikouki.png) - X軸180度回転
-    loader.load('./hikouki.png', (tex) => {
     planeMesh = new THREE.Mesh(
         new THREE.PlaneGeometry(8, 5),
         new THREE.MeshBasicMaterial({ 
             map: tex, 
             transparent: true, 
-            side: THREE.DoubleSide // 両面描画を許可
+            side: THREE.DoubleSide // これで裏表どちらからでも見えます
         })
     );
+    
+    // 2. 回転はすべてリセット（0にする）
+    planeMesh.rotation.set(0, 0, 0); 
+
     planeMesh.position.set(-14, 0, -12);
-    planeMesh.rotation.y = Math.PI;
-    scene.add(planeMesh);//
-});
+    scene.add(planeMesh);
+});;
 
     // 3. 扉
     const doorGeo = new THREE.PlaneGeometry(10, 6);
@@ -174,5 +172,6 @@ function animate() {
 </script>
 </body>
 </html>
+
 
 
