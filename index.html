@@ -1,28 +1,29 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Busan Particle Warp</title>
+    <title>Busan Portal - Deep Depth Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
         #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: #fff; display: flex; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; }
         #whiteout { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; opacity: 0; pointer-events: none; z-index: 900; }
-        .btn { padding: 15px 30px; border: 2px solid #fff; border-radius: 50px; font-size: 1.2rem; }
+        .btn { padding: 15px 40px; border: 2px solid #fff; border-radius: 50px; font-size: 1.2rem; }
     </style>
 </head>
 <body>
 
     <div id="overlay" onclick="requestPermission()">
-        <div class="btn">釜山へ</div>
+        <div class="btn">釜山への旅をはじめる</div>
     </div>
     <div id="whiteout"></div>
 
 <script>
 let scene, camera, renderer, skyMesh, planeMesh, doorL, doorR, sphere, particles;
-let isWarping = false, warpStartTime = 0;
-let hasArrived = false, phase = 'flight';
+let warpStartTime = 0;
+let hasArrived = false;
+let phase = 'flight'; 
 const loader = new THREE.TextureLoader();
 
 function requestPermission() {
@@ -40,7 +41,8 @@ function startApp() {
 
 function init() {
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 2000);
+    // 1. 【奥行きUP】FOVを110に広げ、描画距離を5000に拡張
+    camera = new THREE.PerspectiveCamera(110, window.innerWidth / window.innerHeight, 0.1, 5000);
     camera.rotation.order = 'YXZ';
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -48,50 +50,46 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-   loader.load('./hikouki.png', (tex) => {
-    // 1. 画像そのものを水平（横）方向に反転させる設定
-    tex.repeat.x = -1;
-    tex.offset.x = 1;
+    // 空
+    loader.load('./sora.jpg', (tex) => {
+        tex.wrapS = THREE.RepeatWrapping;
+        skyMesh = new THREE.Mesh(new THREE.PlaneGeometry(80, 50), new THREE.MeshBasicMaterial({ map: tex }));
+        skyMesh.position.z = -30;
+        scene.add(skyMesh);
+    });
 
-    planeMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(8, 5),
-        new THREE.MeshBasicMaterial({ 
-            map: tex, 
-            transparent: true, 
-            side: THREE.DoubleSide // これで裏表どちらからでも見えます
-        })
-    );
-    
-    // 2. 回転はすべてリセット（0にする）
-    planeMesh.rotation.set(0, 0, 0); 
+    // 飛行機 (左右反転)
+    loader.load('./hikouki.png', (tex) => {
+        planeMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(8, 5),
+            new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide })
+        );
+        planeMesh.position.set(-15, 0, -12);
+        planeMesh.scale.x = -1; 
+        scene.add(planeMesh);
+    });
 
-    planeMesh.position.set(-14, 0, -12);
-    scene.add(planeMesh);
-});;
-
-    // 3. 扉
-    const doorGeo = new THREE.PlaneGeometry(10, 6);
-    const doorMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+    // 扉
+    const doorGeo = new THREE.PlaneGeometry(12, 8);
+    const doorMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     doorL = new THREE.Mesh(doorGeo, doorMat);
     doorR = new THREE.Mesh(doorGeo, doorMat);
-    doorL.position.set(8, 3, -15);
-    doorR.position.set(8, -3, -15);
+    doorL.position.set(10, 4, -18);
+    doorR.position.set(10, -4, -18);
     scene.add(doorL, doorR);
 
-    // 4. 光の粒子 (初期は非表示)
+    // 粒子
     const pGeo = new THREE.BufferGeometry();
-    const pCount = 500;
-    const pPos = new Float32Array(pCount * 3);
-    for(let i=0; i<pCount*3; i++) pPos[i] = (Math.random()-0.5) * 10;
+    const pPos = new Float32Array(600 * 3);
+    for(let i=0; i<600*3; i++) pPos[i] = (Math.random()-0.5) * 15;
     pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-    const pMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.1, transparent: true, opacity: 0 });
-    particles = new THREE.Points(pGeo, pMat);
+    particles = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.12, transparent: true, opacity: 0 }));
     scene.add(particles);
 
-    // 5. 釜山遠景 (day_2.jpg)
+    // 2. 【奥行きUP】球体の半径を1500に拡大して遠景を強調
     loader.load('./day_2.jpg', (tex) => {
         sphere = new THREE.Mesh(
-            new THREE.SphereGeometry(600, 64, 32).scale(-1, 1, 1),
+            new THREE.SphereGeometry(1500, 64, 32).scale(-1, 1, 1),
             new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0 })
         );
         scene.add(sphere);
@@ -103,9 +101,9 @@ function init() {
         }
     });
 
-    const trigger = () => { if(phase==='flight') { phase='warp'; warpStartTime = performance.now(); } };
-    window.addEventListener('touchstart', trigger);
-    window.addEventListener('mousedown', trigger);
+    const startWarp = () => { if(phase==='flight') { phase='warp'; warpStartTime = performance.now(); } };
+    window.addEventListener('touchstart', startWarp);
+    window.addEventListener('mousedown', startWarp);
 
     animate();
 }
@@ -116,48 +114,41 @@ function animate() {
     const whiteoutEl = document.getElementById('whiteout');
 
     if (phase === 'flight') {
-        if (skyMesh) skyMesh.material.map.offset.x += 0.0005;
+        if (skyMesh) skyMesh.material.map.offset.x += 0.0006;
         if (planeMesh) {
             planeMesh.position.x += 0.015;
-            planeMesh.position.y = Math.sin(time) * 0.1;
+            planeMesh.position.y = Math.sin(time * 0.8) * 0.15;
         }
     } 
-   else if (phase === 'warp') {
+    else if (phase === 'warp') {
         const elapsed = performance.now() - warpStartTime;
-
-        // 1. 扉の動き出し：1.0秒(1000ms)経過してから開く
-        // もっと遅くしたければ、1000を1500などに増やしてください
-        if (elapsed > 1000) { 
-            doorL.position.y = Math.min(8, doorL.position.y + 0.15);
-            doorR.position.y = Math.max(-8, doorR.position.y - 0.15);
+        if (elapsed > 1200) { 
+            doorL.position.y += 0.2;
+            doorR.position.y -= 0.2;
         }
 
         if (planeMesh) {
-            // 2. 加速のタイミング：x座標が 6.0 を超えたら加速
-            // 扉の位置(8.0)の直前で加速するように設定しました
-            let isNearDoor = (planeMesh.position.x > 6.0); 
-            let speed = isNearDoor ? 1.8 : 0.08; 
-
+            let isAccelerating = (planeMesh.position.x > 7);
+            let speed = isAccelerating ? 2.0 : 0.08;
             planeMesh.position.x += speed;
-            planeMesh.position.z -= speed * 0.6;
+            planeMesh.position.z -= speed * 0.5;
 
-            // 加速と同時に粒子を出す
-            if (isNearDoor) {
+            if (isAccelerating) {
                 particles.material.opacity = 1;
                 particles.position.set(planeMesh.position.x, planeMesh.position.y, planeMesh.position.z);
             }
 
-            if (planeMesh.position.x > 20) {
+            if (planeMesh.position.x > 25) {
                 phase = 'whiteout';
                 warpStartTime = performance.now();
             }
         }
-    }
+    } 
     else if (phase === 'whiteout') {
         const elapsed = performance.now() - warpStartTime;
         whiteoutEl.style.opacity = elapsed < 100 ? elapsed / 100 : 1;
 
-        if (elapsed > 500) { // 0.5秒に短縮
+        if (elapsed > 500) {
             scene.remove(planeMesh, skyMesh, doorL, doorR, particles);
             phase = 'arrival';
             warpStartTime = performance.now();
@@ -165,17 +156,25 @@ function animate() {
     } 
     else if (phase === 'arrival') {
         const elapsed = performance.now() - warpStartTime;
-        whiteoutEl.style.opacity = 1 - (elapsed / 2500);
-        if (sphere) sphere.material.opacity = elapsed / 2500;
-        camera.position.z = THREE.MathUtils.lerp(0, -60, elapsed / 8000);
+        whiteoutEl.style.opacity = 1 - (elapsed / 3000);
+        if (sphere) sphere.material.opacity = elapsed / 3000;
 
-        if (elapsed > 2500) {
+        // 3. 【奥行きUP】遠くから近づく幅を -300 まで大きく
+        camera.position.z = THREE.MathUtils.lerp(0, -300, elapsed / 10000);
+
+        if (elapsed > 3000) {
             hasArrived = true;
             whiteoutEl.style.display = 'none';
         }
     }
     renderer.render(scene, camera);
 }
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
 </body>
 </html>
