@@ -3,24 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Busan Side Entry Portal</title>
+    <title>Busan Ultimate Warp</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
         #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: #fff; display: flex; justify-content: center; align-items: center; z-index: 1000; cursor: pointer; }
+        #whiteout { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; opacity: 0; pointer-events: none; z-index: 900; }
         .btn { padding: 15px 30px; border: 2px solid #fff; border-radius: 50px; font-size: 1.2rem; }
     </style>
 </head>
 <body>
 
     <div id="overlay" onclick="requestPermission()">
-        <div class="btn">釜山へのフライトを開始</div>
+        <div class="btn">釜山への旅を開始する</div>
     </div>
+    <div id="whiteout"></div>
 
 <script>
 let scene, camera, renderer, skyMesh, planeMesh, doorL, doorR, sphere;
 let isWarping = false, warpStartTime = 0;
 let hasArrived = false;
+let phase = 'flight'; // flight -> warp -> whiteout -> arrival
 const loader = new THREE.TextureLoader();
 
 function requestPermission() {
@@ -38,7 +41,8 @@ function startApp() {
 
 function init() {
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    // 初期は広角(FOV 90)にして遠景を強調
+    camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 2000);
     camera.rotation.order = 'YXZ';
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -46,107 +50,115 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // 1. 空の背景 (sora.jpg)
+    // 1. 空 (sora.jpg)
     loader.load('./sora.jpg', (tex) => {
         tex.wrapS = THREE.RepeatWrapping;
-        skyMesh = new THREE.Mesh(new THREE.PlaneGeometry(50, 30), new THREE.MeshBasicMaterial({ map: tex }));
-        skyMesh.position.z = -20;
+        skyMesh = new THREE.Mesh(new THREE.PlaneGeometry(60, 40), new THREE.MeshBasicMaterial({ map: tex }));
+        skyMesh.position.z = -25;
         scene.add(skyMesh);
     });
 
-    // 2. 飛行機のPNG (hikouki.png) - 左側に配置
+    // 2. 飛行機 (hikouki.png) - 最初は鼻先だけ見せる
     loader.load('./hikouki.png', (tex) => {
-        planeMesh = new THREE.Mesh(new THREE.PlaneGeometry(6, 4), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
-        planeMesh.position.set(-8, 0, -10); 
+        planeMesh = new THREE.Mesh(new THREE.PlaneGeometry(8, 5), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+        planeMesh.position.set(-14, 0, -12); // 左端に隠しておく
         scene.add(planeMesh);
     });
 
-    // 3. 90度回転した平行な扉 (画面右側に配置)
-    const doorGeo = new THREE.PlaneGeometry(8, 5); // 横長にして「壁」のように
+    // 3. 平行な扉 (右側に横たわる)
+    const doorGeo = new THREE.PlaneGeometry(10, 6);
     const doorMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
     doorL = new THREE.Mesh(doorGeo, doorMat);
     doorR = new THREE.Mesh(doorGeo, doorMat);
-    
-    // 扉を平行（少し斜め）に配置
-    doorL.position.set(5, 2.5, -12);
-    doorR.position.set(5, -2.5, -12);
+    doorL.position.set(8, 3, -15);
+    doorR.position.set(8, -3, -15);
     scene.add(doorL, doorR);
 
-    // 4. 釜山の全天球 (day_2.jpg)
+    // 4. 釜山遠景 (day_2.jpg)
     loader.load('./day_2.jpg', (tex) => {
+        // 球体を大きくして遠くに見せる
         sphere = new THREE.Mesh(
-            new THREE.SphereGeometry(100, 64, 32).scale(-1, 1, 1),
+            new THREE.SphereGeometry(500, 64, 32).scale(-1, 1, 1),
             new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0 })
         );
         scene.add(sphere);
     });
 
-    // ジャイロ制御
     window.addEventListener('deviceorientation', (e) => {
         if (hasArrived && e.alpha) {
             camera.rotation.set((e.beta - 90) * Math.PI / 180, e.alpha * Math.PI / 180, 0);
         }
     });
 
-    window.addEventListener('touchstart', triggerWarp);
-    window.addEventListener('mousedown', triggerWarp);
+    window.addEventListener('touchstart', () => { if(phase==='flight') phase='warp'; warpStartTime = performance.now(); });
+    window.addEventListener('mousedown', () => { if(phase==='flight') phase='warp'; warpStartTime = performance.now(); });
 
     animate();
-}
-
-function triggerWarp() {
-    if (!isWarping && !hasArrived) {
-        isWarping = true;
-        warpStartTime = performance.now();
-    }
 }
 
 function animate() {
     requestAnimationFrame(animate);
     const time = performance.now() * 0.001;
+    const whiteoutEl = document.getElementById('whiteout');
 
-    if (!hasArrived) {
-        // 通常飛行中
-        if (skyMesh) skyMesh.material.map.offset.x += 0.001;
-        if (planeMesh && !isWarping) {
-            planeMesh.position.y = Math.sin(time * 1.5) * 0.15; // 浮遊感
-            planeMesh.position.x = THREE.MathUtils.lerp(planeMesh.position.x, -5, 0.01);
-        }
-    }
-
-    if (isWarping) {
-        const elapsed = performance.now() - warpStartTime;
-        const alpha = Math.min(elapsed / 2000, 1); // 2秒でワープ
-
-        // 扉が上下に開く（平行なシャッターのように）
-        doorL.position.y = 2.5 + (alpha * 5);
-        doorR.position.y = -2.5 - (alpha * 5);
-
-        // 飛行機が「扉の隙間」へ斜めに吸い込まれる
+    if (phase === 'flight') {
+        if (skyMesh) skyMesh.material.map.offset.x += 0.0005;
         if (planeMesh) {
-            planeMesh.position.x += 0.2; // 右へ
-            planeMesh.position.z -= 0.1; // 奥へ（扉の中へ）
-            planeMesh.rotation.y = alpha * 0.5; // 少し扉の方へ傾く
-            
-            // 扉の向こう側（z=-12付近）に到達したら消去
-            if (planeMesh.position.z <= -12) {
-                scene.remove(planeMesh);
-                planeMesh = null;
+            // ゆっくりと中央へ進む
+            planeMesh.position.x += 0.015;
+            planeMesh.position.y = Math.sin(time) * 0.1;
+        }
+    } 
+    else if (phase === 'warp') {
+        const elapsed = performance.now() - warpStartTime;
+        
+        // 扉がゆっくり開き始める
+        doorL.position.y = Math.min(8, doorL.position.y + 0.1);
+        doorR.position.y = Math.max(-8, doorR.position.y - 0.1);
+
+        if (planeMesh) {
+            // 扉に近づくまでは中速、扉(x=0付近)に来たらマッハ加速
+            let speed = (planeMesh.position.x > 0) ? 1.5 : 0.08;
+            planeMesh.position.x += speed;
+            planeMesh.position.z -= speed * 0.5; // 奥へ吸い込まれる
+
+            // 完全に吸い込まれたらホワイトアウトへ
+            if (planeMesh.position.x > 15) {
+                phase = 'whiteout';
+                warpStartTime = performance.now();
             }
         }
+    } 
+    else if (phase === 'whiteout') {
+        const elapsed = performance.now() - warpStartTime;
+        
+        // パッと白くなり、1秒維持
+        if (elapsed < 200) whiteoutEl.style.opacity = elapsed / 200;
+        else whiteoutEl.style.opacity = 1;
 
-        // 景色切り替え
-        if (!planeMesh) {
-            if (skyMesh) skyMesh.material.opacity = Math.max(0, skyMesh.material.opacity - 0.1);
-            if (sphere) sphere.material.opacity = Math.min(1, sphere.material.opacity + 0.1);
-            
-            if (alpha > 0.9) {
-                hasArrived = true;
-                isWarping = false;
-                scene.remove(doorL, doorR, skyMesh);
-            }
+        if (elapsed > 1200) {
+            // 背景リセット
+            scene.remove(planeMesh, skyMesh, doorL, doorR);
+            phase = 'arrival';
+            warpStartTime = performance.now();
+        }
+    } 
+    else if (phase === 'arrival') {
+        const elapsed = performance.now() - warpStartTime;
+        
+        // 徐々に景色が見える (3秒かけてフェード)
+        whiteoutEl.style.opacity = 1 - (elapsed / 3000);
+        if (sphere) sphere.material.opacity = elapsed / 3000;
+
+        // カメラがゆっくり街へ近づくアニメーション
+        camera.position.z = THREE.MathUtils.lerp(0, -50, elapsed / 10000);
+
+        if (elapsed > 3000) {
+            hasArrived = true;
+            whiteoutEl.style.display = 'none';
         }
     }
+
     renderer.render(scene, camera);
 }
 </script>
