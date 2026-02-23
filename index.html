@@ -58,11 +58,18 @@ function init() {
 
     // 2. 飛行機 (hikouki.png) - X軸180度回転
     loader.load('./hikouki.png', (tex) => {
-        planeMesh = new THREE.Mesh(new THREE.PlaneGeometry(8, 5), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
-        planeMesh.position.set(-14, 0, -12);
-        planeMesh.rotation.x = Math.PI; // X軸180度回転
-        scene.add(planeMesh);
-    });
+    planeMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(8, 5),
+        new THREE.MeshBasicMaterial({ 
+            map: tex, 
+            transparent: true, 
+            side: THREE.DoubleSide // 両面描画を許可
+        })
+    );
+    planeMesh.position.set(-14, 0, -12);
+    planeMesh.rotation.x = Math.PI; // X軸180度回転
+    scene.add(planeMesh);
+});
 
     // 3. 扉
     const doorGeo = new THREE.PlaneGeometry(10, 6);
@@ -167,3 +174,4 @@ function animate() {
 </script>
 </body>
 </html>
+
