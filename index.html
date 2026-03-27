@@ -2,14 +2,13 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>動作確認 - 校舎案内</title>
+    <title>デバッグ画面 - 校舎案内</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   </head>
   <body>
     <a-scene>
       <a-assets>
         <img id="kousha-img" src="IMG_7689.jpeg">
-
         <img id="thumb1" src="thumb1.jpg">
         <img id="thumb2" src="thumb2.jpg">
         <img id="thumb3" src="thumb3.jpg">
@@ -22,28 +21,24 @@
         radius="100" 
         phi-start="60"
         phi-length="240" 
-        segments-height="64"
-        segments-width="64"
         material="side: double; shader: flat"
         scale="1 1 -1"
-        rotation="0 -90 0">
-      </a-sphere>
+        rotation="0 90 0"> </a-sphere>
 
-      <a-sky color="#1a1a1a"></a-sky>
+      <a-sky color="#FFFFFF"></a-sky>
 
-      <a-entity id="info-panel" rotation="0 180 0" position="0 0 0">
+      <a-entity id="info-panel" rotation="0 0 0" position="0 0 0">
         
         <a-entity id="text-area" position="0 2.5 -5">
-          <a-text value="Information Area" align="center" color="#FFF" width="6" position="0 0.5 0"></a-text>
-          <a-text value="If pictures are missing, you see pink boxes." align="center" color="#CCC" width="4" position="0 0 0"></a-text>
+          <a-text value="DEBUG MODE: INFO PANEL" align="center" color="#000" width="6" position="0 0.5 0"></a-text>
         </a-entity>
 
         <a-entity id="gallery-area" position="0 1.2 0">
-          <a-image src="#thumb1" material="color: #FF00FF" position="-2.5 0 -4.33" rotation="0 30 0" width="1.5" height="1"></a-image>
-          <a-image src="#thumb2" material="color: #FF00FF" position="-1.29 0 -4.83" rotation="0 15 0" width="1.5" height="1"></a-image>
-          <a-image src="#thumb3" material="color: #FF00FF" position="0 0 -5" rotation="0 0 0" width="1.5" height="1"></a-image>
-          <a-image src="#thumb4" material="color: #FF00FF" position="1.29 0 -4.83" rotation="0 -15 0" width="1.5" height="1"></a-image>
-          <a-image src="#thumb5" material="color: #FF00FF" position="2.5 0 -4.33" rotation="0 -30 0" width="1.5" height="1"></a-image>
+          <a-image src="#thumb1" color="#FF00FF" position="-2.5 0 -4.33" rotation="0 30 0" width="1.5" height="1"></a-image>
+          <a-image src="#thumb2" color="#00FF00" position="-1.29 0 -4.83" rotation="0 15 0" width="1.5" height="1"></a-image>
+          <a-image src="#thumb3" color="#0000FF" position="0 0 -5" rotation="0 0 0" width="1.5" height="1"></a-image>
+          <a-image src="#thumb4" color="#FFFF00" position="1.29 0 -4.83" rotation="0 -15 0" width="1.5" height="1"></a-image>
+          <a-image src="#thumb5" color="#FF0000" position="2.5 0 -4.33" rotation="0 -30 0" width="1.5" height="1"></a-image>
         </a-entity>
       </a-entity>
 
