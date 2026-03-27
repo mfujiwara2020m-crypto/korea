@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>デバッグ画面 - 校舎案内</title>
+    <title>校舎案内 - 完成版配置</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   </head>
   <body>
@@ -21,16 +21,34 @@
         radius="100" 
         phi-start="60"
         phi-length="240" 
+        segments-height="64"
+        segments-width="64"
         material="side: double; shader: flat"
         scale="1 1 -1"
-        rotation="0 90 0"> </a-sphere>
+        rotation="0 -90 0">
+      </a-sphere>
 
-      <a-sky color="#FFFFFF"></a-sky>
+      <a-sky color="#333333"></a-sky>
 
-      <a-entity id="info-panel" rotation="0 0 0" position="0 0 0">
+
+      <a-entity id="info-panel" rotation="0 180 0" position="0 0 0">
         
         <a-entity id="text-area" position="0 2.5 -5">
-          <a-text value="DEBUG MODE: INFO PANEL" align="center" color="#000" width="6" position="0 0.5 0"></a-text>
+          <a-text 
+            value="Old School Building" 
+            align="center" 
+            color="#FFF" 
+            width="6" 
+            font="aileronsemibold"
+            position="0 0.5 0">
+          </a-text>
+          <a-text 
+            value="Built in 1950. This building holds many memories.\nExplore the details through the photos below." 
+            align="center" 
+            color="#CCC" 
+            width="4" 
+            position="0 0 0">
+          </a-text>
         </a-entity>
 
         <a-entity id="gallery-area" position="0 1.2 0">
