@@ -2,13 +2,19 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>240度パノラマビューア - 校舎</title>
+    <title>校舎案内 - 240度パノラマ & インフォメーション</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   </head>
   <body>
     <a-scene>
       <a-assets>
-        <img id="kousha-img" src="IMG_7689.jpeg">
+        <img id="kousha-img" src="kousha.jpg">
+
+        <img id="thumb1" src="thumb1.jpg">
+        <img id="thumb2" src="thumb2.jpg">
+        <img id="thumb3" src="thumb3.jpg">
+        <img id="thumb4" src="thumb4.jpg">
+        <img id="thumb5" src="thumb5.jpg">
       </a-assets>
 
       <a-sphere 
@@ -23,7 +29,43 @@
         rotation="0 -90 0">
       </a-sphere>
 
-      <a-sky color="#222"></a-sky>
+      <a-sky color="#1a1a1a"></a-sky>
+
+
+      <a-entity id="info-panel" rotation="0 180 0" position="0 0 0">
+        
+        <a-entity id="text-area" position="0 2.5 -5">
+          <a-text 
+            value="Old School Building" 
+            align="center" 
+            color="#FFF" 
+            width="6" 
+            font="aileronsemibold"
+            position="0 0.5 0">
+          </a-text>
+          <a-text 
+            value="Built in 1950. This building holds many memories.\nExplore the details through the photos below." 
+            align="center" 
+            color="#CCC" 
+            width="4" 
+            position="0 0 0">
+          </a-text>
+        </a-entity>
+
+        <a-entity id="gallery-area" position="0 1.2 0">
+          
+          <a-image src="#thumb1" position="-2.5 0 -4.33" rotation="0 30 0" width="1.5" height="1"></a-image>
+          
+          <a-image src="#thumb2" position="-1.29 0 -4.83" rotation="0 15 0" width="1.5" height="1"></a-image>
+          
+          <a-image src="#thumb3" position="0 0 -5" rotation="0 0 0" width="1.5" height="1"></a-image>
+          
+          <a-image src="#thumb4" position="1.29 0 -4.83" rotation="0 -15 0" width="1.5" height="1"></a-image>
+          
+          <a-image src="#thumb5" position="2.5 0 -4.33" rotation="0 -30 0" width="1.5" height="1"></a-image>
+
+        </a-entity>
+      </a-entity>
 
       <a-entity camera look-controls position="0 1.6 0"></a-entity>
     </a-scene>
