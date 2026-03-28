@@ -17,24 +17,23 @@
         <img id="t7" src="thumb7.jpg" crossorigin="anonymous">
       </a-assets>
 
-      <a-sphere 
-        src="#main-bg" 
-        radius="60" 
-        phi-length="300"
-        material="side: double; shader: flat; transparent: true;"
-        scale="1 1 -1"
-        rotation="0 30 0">
-      </a-sphere>
+     <a-sphere 
+  src="#main-bg" 
+  radius="70" 
+  phi-length="300"
+  material="side: double; shader: flat"
+  scale="1 1 -1"
+  rotation="0 0 0"> </a-sphere>
 
-      <a-entity id="photo-column" rotation="0 180 0" position="0 1.6 -2">
-        
-        <a-plane src="#t2" width="1.2" height="0.8" position="0 1.8 0" material="shader: flat; transparent: true; opacity: 0.99; side: double;"></a-plane>
-        <a-plane src="#t3" width="1.2" height="0.8" position="0 0.9 0" material="shader: flat; transparent: true; opacity: 0.99; side: double;"></a-plane>
-        <a-plane src="#t5" width="1.2" height="0.8" position="0 0.0 0" material="shader: flat; transparent: true; opacity: 0.99; side: double;"></a-plane>
-        <a-plane src="#t6" width="1.2" height="0.8" position="0 -0.9 0" material="shader: flat; transparent: true; opacity: 0.99; side: double;"></a-plane>
-        <a-plane src="#t7" width="1.2" height="0.8" position="0 -1.8 0" material="shader: flat; transparent: true; opacity: 0.99; side: double;"></a-plane>
-        
-      </a-entity>
+<a-entity id="photo-column" rotation="0 330 0" position="0 1.6 0">
+  
+  <a-plane src="#t2" width="1.5" height="1" position="0 3 -5" material="shader: flat"></a-plane>
+  <a-plane src="#t3" width="1.5" height="1" position="0 1.5 -5" material="shader: flat"></a-plane>
+  <a-plane src="#t5" width="1.5" height="1" position="0 0 -5" material="shader: flat"></a-plane>
+  <a-plane src="#t6" width="1.5" height="1" position="0 -1.5 -5" material="shader: flat"></a-plane>
+  <a-plane src="#t7" width="1.5" height="1" position="0 -3 -5" material="shader: flat"></a-plane>
+  
+</a-entity>
 
       <a-entity camera look-controls position="0 1.6 0"></a-entity>
 
