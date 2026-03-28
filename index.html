@@ -2,44 +2,45 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>300度パノラマ背景と7枚の縦並び写真</title>
-    <meta name="description" content="A-Frameによるパノラマ背景と画像の配置">
+    <title>300度パノラマと隙間のフォトギャラリー</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   </head>
   <body>
     <a-scene background="color: #000000">
 
       <a-assets>
-        <img id="panorama" src="IMG_7689.jpeg">
-        <img id="thumb1" src="thumb1.jpg">
-        <img id="thumb2" src="thumb2.jpg">
-        <img id="thumb3" src="thumb3.jpg">
-        <img id="thumb4" src="thumb4.jpg">
-        <img id="thumb5" src="thumb5.jpg">
-        <img id="thumb6" src="thumb6.jpg">
-        <img id="thumb7" src="thumb7.jpg">
+        <img id="main-bg" src="IMG_7689.jpeg">
+        <img id="t1" src="thumb1.jpg">
+        <img id="t2" src="thumb2.jpg">
+        <img id="t3" src="thumb3.jpg">
+        <img id="t4" src="thumb4.jpg">
+        <img id="t5" src="thumb5.jpg">
+        <img id="t6" src="thumb6.jpg">
+        <img id="t7" src="thumb7.jpg">
       </a-assets>
 
-      <a-sky src="#panorama" 
-             rotation="0 -150 0" 
-             theta-length="300" 
-             material="shader: flat">
-      </a-sky>
+      <a-sphere 
+        src="#main-bg" 
+        radius="100" 
+        segments-height="64"
+        segments-width="64"
+        phi-length="300"
+        material="side: double; shader: flat"
+        scale="1 1 -1"
+        rotation="0 30 0">
+      </a-sphere>
 
-      <a-entity id="thumbnails" position="0 1.6 -3">
+      <a-entity id="photo-v-list" rotation="0 180 0" position="0 1.6 -5">
         
-        <a-plane src="#thumb1" width="1" height="0.5" position="0 1.8 0" material="shader: flat"></a-plane>
-        <a-plane src="#thumb2" width="1" height="0.5" position="0 1.2 0" material="shader: flat"></a-plane>
-        <a-plane src="#thumb3" width="1" height="0.5" position="0 0.6 0" material="shader: flat"></a-plane>
-        <a-plane src="#thumb4" width="1" height="0.5" position="0 0 0" material="shader: flat"></a-plane>
-        <a-plane src="#thumb5" width="1" height="0.5" position="0 -0.6 0" material="shader: flat"></a-plane>
-        <a-plane src="#thumb6" width="1" height="0.5" position="0 -1.2 0" material="shader: flat"></a-plane>
-        <a-plane src="#thumb7" width="1" height="0.5" position="0 -1.8 0" material="shader: flat"></a-plane>
+        <a-plane src="#t1" width="2" height="1.2" position="0 4.5 0" material="shader: flat"></a-plane>
+        <a-plane src="#t2" width="2" height="1.2" position="0 3.0 0" material="shader: flat"></a-plane>
+        <a-plane src="#t3" width="2" height="1.2" position="0 1.5 0" material="shader: flat"></a-plane>
+        <a-plane src="#t4" width="2" height="1.2" position="0 0.0 0" material="shader: flat"></a-plane>
+        <a-plane src="#t5" width="2" height="1.2" position="0 -1.5 0" material="shader: flat"></a-plane>
+        <a-plane src="#t6" width="2" height="1.2" position="0 -3.0 0" material="shader: flat"></a-plane>
+        <a-plane src="#t7" width="2" height="1.2" position="0 -4.5 0" material="shader: flat"></a-plane>
         
       </a-entity>
-
-      <a-entity light="type: ambient; color: #BBB"></a-entity>
-      <a-entity light="type: directional; color: #FFF; intensity: 0.6" position="-0.5 1 1"></a-entity>
 
       <a-entity camera look-controls position="0 1.6 0"></a-entity>
 
