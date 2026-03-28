@@ -2,30 +2,43 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>診断用テスト</title>
+    <title>iPhone表示修正版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   </head>
   <body>
     <a-scene background="color: #FFFFFF">
 
+      <a-assets>
+        <img id="main-bg" src="IMG_7689.jpeg">
+        <img id="t2" src="thumb2.jpg">
+        <img id="t3" src="thumb3.jpg">
+        <img id="t5" src="thumb5.jpg">
+        <img id="t6" src="thumb6.jpg">
+        <img id="t7" src="thumb7.jpg">
+      </a-assets>
+
       <a-sphere 
-        color="#00FF00"
-        radius="30" 
+        src="#main-bg" 
+        radius="70" 
         phi-length="300"
-        material="side: double; shader: flat; opacity: 0.5"
+        material="side: double; shader: flat"
         scale="1 1 -1"
         rotation="0 30 0">
       </a-sphere>
 
-      <a-entity id="test-column" rotation="0 180 0" position="0 1.6 -4">
-        <a-plane color="red" width="2" height="1" position="0 2.4 0"></a-plane>
-        <a-plane color="blue" width="2" height="1" position="0 1.2 0"></a-plane>
-        <a-plane color="orange" width="2" height="1" position="0 0 0"></a-plane>
-        <a-plane color="purple" width="2" height="1" position="0 -1.2 0"></a-plane>
-        <a-plane color="black" width="2" height="1" position="0 -2.4 0"></a-plane>
+      <a-entity id="photo-column" rotation="0 180 0" position="0 1.6 -3">
+        
+        <a-plane src="#t2" width="1.5" height="1" position="0 2 0" material="shader: flat; depthTest: false"></a-plane>
+        <a-plane src="#t3" width="1.5" height="1" position="0 1 0" material="shader: flat; depthTest: false"></a-plane>
+        <a-plane src="#t5" width="1.5" height="1" position="0 0 0" material="shader: flat; depthTest: false"></a-plane>
+        <a-plane src="#t6" width="1.5" height="1" position="0 -1 0" material="shader: flat; depthTest: false"></a-plane>
+        <a-plane src="#t7" width="1.5" height="1" position="0 -2 0" material="shader: flat; depthTest: false"></a-plane>
+        
       </a-entity>
 
       <a-entity camera look-controls position="0 1.6 0"></a-entity>
+
     </a-scene>
   </body>
 </html>
