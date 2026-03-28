@@ -2,32 +2,47 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>配置テスト - 修正版</title>
+    <title>300度パノラマ背景と7枚の縦並び写真</title>
+    <meta name="description" content="A-Frameによるパノラマ背景と画像の配置">
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   </head>
   <body>
-    <a-scene background="color: #0000FF">
-      
-      <a-sphere 
-        color="#FFFF00"
-        radius="50" 
-        material="side: double; shader: flat; opacity: 0.3"
-        position="0 0 0">
-      </a-sphere>
+    <a-scene background="color: #000000">
 
-      <a-entity id="info-board" position="0 1.6 -15">
-        <a-plane color="white" width="4" height="10" position="0 0 0"></a-plane>
+      <a-assets>
+        <img id="panorama" src="IMG_7689.jpeg">
+        <img id="thumb1" src="thumb1.jpg">
+        <img id="thumb2" src="thumb2.jpg">
+        <img id="thumb3" src="thumb3.jpg">
+        <img id="thumb4" src="thumb4.jpg">
+        <img id="thumb5" src="thumb5.jpg">
+        <img id="thumb6" src="thumb6.jpg">
+        <img id="thumb7" src="thumb7.jpg">
+      </a-assets>
+
+      <a-sky src="#panorama" 
+             rotation="0 -150 0" 
+             theta-length="300" 
+             material="shader: flat">
+      </a-sky>
+
+      <a-entity id="thumbnails" position="0 1.6 -3">
         
-        <a-box color="red" width="3" height="0.8" depth="0.1" position="0 4 0.1"></a-box>
-        <a-box color="red" width="3" height="0.8" depth="0.1" position="0 2.5 0.1"></a-box>
-        <a-box color="red" width="3" height="0.8" depth="0.1" position="0 1 0.1"></a-box>
-        <a-box color="red" width="3" height="0.8" depth="0.1" position="0 -0.5 0.1"></a-box>
-        <a-box color="red" width="3" height="0.8" depth="0.1" position="0 -2 0.1"></a-box>
-        <a-box color="red" width="3" height="0.8" depth="0.1" position="0 -3.5 0.1"></a-box>
-        <a-box color="red" width="3" height="0.8" depth="0.1" position="0 -5 0.1"></a-box>
+        <a-plane src="#thumb1" width="1" height="0.5" position="0 1.8 0" material="shader: flat"></a-plane>
+        <a-plane src="#thumb2" width="1" height="0.5" position="0 1.2 0" material="shader: flat"></a-plane>
+        <a-plane src="#thumb3" width="1" height="0.5" position="0 0.6 0" material="shader: flat"></a-plane>
+        <a-plane src="#thumb4" width="1" height="0.5" position="0 0 0" material="shader: flat"></a-plane>
+        <a-plane src="#thumb5" width="1" height="0.5" position="0 -0.6 0" material="shader: flat"></a-plane>
+        <a-plane src="#thumb6" width="1" height="0.5" position="0 -1.2 0" material="shader: flat"></a-plane>
+        <a-plane src="#thumb7" width="1" height="0.5" position="0 -1.8 0" material="shader: flat"></a-plane>
+        
       </a-entity>
 
+      <a-entity light="type: ambient; color: #BBB"></a-entity>
+      <a-entity light="type: directional; color: #FFF; intensity: 0.6" position="-0.5 1 1"></a-entity>
+
       <a-entity camera look-controls position="0 1.6 0"></a-entity>
+
     </a-scene>
   </body>
 </html>
